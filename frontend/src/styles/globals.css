@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 250 70% 7%;
+  --bg-muted: 250 60% 9%;
+
+  --panel: 255 52% 12%;
+  --panel-soft: 252 45% 14%;
+
+  --text: 0 0% 100%;
+  --text-muted: 244 20% 78%;
+
+  --brand-primary: 260 88% 68%;
+  --brand-secondary: 294 92% 60%;
+  --brand-accent: 320 95% 62%;
+  --brand-hot: 335 95% 58%;
+
+  --ring: 296 92% 60%;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  background: hsl(var(--bg));
+  color: hsl(var(--text));
+}
+
+::selection {
+  background: hsl(var(--brand-accent) / 0.25);
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .glass {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10;
+  }
+
+  .ring-soft {
+    @apply ring-1 ring-white/10;
+  }
+}

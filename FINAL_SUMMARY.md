@@ -358,6 +358,21 @@ npm run build
 - [ ] Build React: `npm run build`
 - [ ] Set production API URL
 - [ ] Configure Django CORS
+
+---
+
+## ✅ Quick Test Steps (current build)
+
+1) Backend: activate venv, run `python manage.py runserver`.
+2) Frontend: `cd frontend`, `npm install` (first time), `npm run dev` (http://localhost:5173).
+3) Admin login: username `Admin`, password `admin123` → should land on Admin dashboard with role `admin` and stats populated.
+4) Register a new user via Auth page → verify user appears in Users tab (role `user`), and can log in to user portal (no admin access).
+5) Admin smoke:
+  - Create webinar (Schedule), edit/delete from Dashboard list.
+  - Add recording (Recordings) and delete it.
+  - View registrations table (Registrations) and delete a registration.
+  - Confirm stats update after actions.
+6) Tokens/roles are fetched from `/api/users/profile/me/`; admin-only actions require logged-in admin.
 - [ ] Use HTTPS
 - [ ] Test all features
 - [ ] Deploy
