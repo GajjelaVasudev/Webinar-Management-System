@@ -1,5 +1,6 @@
 # Virtual environment
 .venv/
+venv/
 
 # Database
 db.sqlite3
@@ -11,3 +12,22 @@ __pycache__/
 # Django stuff
 *.log
 .env
+.env.local
+
+# Static files
+staticfiles/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
