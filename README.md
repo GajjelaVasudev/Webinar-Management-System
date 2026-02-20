@@ -1,63 +1,153 @@
-# Webinar and Online Workshop Management System
+# Webinar Management System - Refactored
 
-## Objective
-A simple Django-based system to manage webinars/workshops where:
-- Admin/organizer can create events and add recording links.
-- Users can view events, register (once per event), and view recordings after login.
+A professional Django REST Framework + React application with **clean architecture**.
 
-## Tech Stack
-- Python 3
-- Django (Django ORM + built-in authentication)
-- SQLite (default Django database)
+## 🎯 What's New
 
-## Modules
-- **events app**
-  - Event listing page
-  - Event registration (login required)
-  - Session recordings page (login required)
-- **admin module**
-  - Manage Events, Registrations, and Recordings from Django Admin
+This project has been **refactored** from a monolithic single-app structure to a clean, modular architecture following Django best practices.
 
-## Database Tables (Models)
-Created using Django ORM (SQLite database `db.sqlite3`):
-- **Event**
-  - `title`, `description`, `date`, `time`, `organizer` (FK to User)
-- **Registration**
-  - `user` (FK to User), `event` (FK to Event), `registered_on` (auto timestamp)
-  - Unique registration per user/event (prevents duplicate registration)
-- **Recording**
-  - `event` (FK to Event), `recording_link` (URL)
+### Architecture: Before vs After
 
-## User Roles
-- **Admin (Superuser)**
-  - Logs in to `/admin/`
-  - Can create/edit events and add recordings
-- **User (Student/Participant)**
-  - Can view event list without login
-  - Must log in to register and to view recordings
+**Before:** All functionality in one `events` app  
+**After:** 5 focused apps with clear separation of concerns
 
-## How to Run (Windows)
-1. Open PowerShell in the project folder.
-2. Activate venv (if needed):
-   - `.venv\Scripts\Activate.ps1`
-3. Run migrations (first time only):
-   - `python manage.py migrate`
-4. Create an admin user:
-   - `python manage.py createsuperuser`
-5. Start the server:
-   - `python manage.py runserver`
+## 🏗️ Apps
 
-### Useful URLs
-- Admin login: `http://127.0.0.1:8000/admin/`
-- Event list: `http://127.0.0.1:8000/events/`
+| App | Purpose | Endpoints |
+|-----|---------|-----------|
+| **accounts** | User authentication & profiles | `/api/accounts/` |
+| **webinars** | Event/webinar management | `/api/webinars/` |
+| **registrations** | User registrations | `/api/registrations/` |
+| **recordings** | Webinar recordings | `/api/recordings/` |
+| **communications** | Announcements, notifications, chat | `/api/communications/` |
 
-## Testing
-Automated tests are included in `events/tests.py` and were run successfully:
-- `python manage.py test`
+## 🚀 Quick Start
 
-The tests verify:
-- Admin can create Events and Recordings
-- Event list loads
-- Registration and recordings require login and redirect to admin login
-- User can register only once per event
-- Redirect works correctly after registration
+```powershell
+# 1. Apply migrations
+python manage.py migrate
+
+# 2. Create admin user
+python manage.py createsuperuser
+
+# 3. Start backend (Port 8000)
+python manage.py runserver
+
+# 4. Start frontend (Port 5173)
+cd frontend
+npm run dev
+```
+
+## 📡 API Endpoints
+
+All endpoints now use `/api/` prefix:
+
+- `POST /api/accounts/auth/login/` - Login
+- `POST /api/accounts/auth/register/` - Register
+- `GET /api/webinars/` - List webinars
+- `POST /api/registrations/register/` - Register for webinar
+- `GET /api/recordings/` - List recordings
+- `GET /api/communications/announcements/` - Announcements
+
+See [API_REFERENCE.md](docs/API_REFERENCE.md) for complete documentation.
+
+## 📚 Documentation
+
+- **[QUICKSTART_REFACTORED.md](QUICKSTART_REFACTORED.md)** - Get started in 3 steps
+- **[REFACTORING_GUIDE.md](REFACTORING_GUIDE.md)** - Complete migration guide
+- **[REFACTORING_COMPLETE.md](REFACTORING_COMPLETE.md)** - What changed & why
+- **[PROJECT_README.md](PROJECT_README.md)** - Detailed project overview
+- **[docs/](docs/)** - All other documentation
+
+## 🛠️ Tech Stack
+
+- **Backend:** Django 6.0, Django REST Framework, JWT Auth
+- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS
+- **Database:** SQLite (dev) / PostgreSQL (prod)
+
+## ✨ Features
+
+**For Users:**
+- Browse & register for webinars
+- Access recordings
+- Participate in live chat
+- Receive notifications
+
+**For Admins:**
+- Create & manage webinars
+- Upload recordings
+- Send announcements
+- View analytics
+
+## 🔐 Authentication
+
+JWT-based authentication with:
+- Login via username or email
+- Access token (1 hour)
+- Refresh token (7 days)
+- Role-based permissions (admin/user)
+
+## 📁 Project Structure
+
+```
+PFSD-PROJECT/
+├── webinar_system/      # Django config
+├── accounts/            # Authentication
+├── webinars/            # Events
+├── registrations/       # Sign-ups
+├── recordings/          # Videos
+├── communications/      # Messaging
+├── frontend/            # React app
+├── docs/                # Documentation
+└── tests/               # Tests
+```
+
+## ⚙️ Environment Setup
+
+Create `.env` file (use `.env.example` as template):
+
+```env
+SECRET_KEY=your-secret-key
+DEBUG=True
+USE_POSTGRESQL=False
+```
+
+## 🧪 Testing
+
+```powershell
+# Backend tests
+python manage.py test
+
+# Frontend tests
+cd frontend
+npm test
+
+# Verify refactoring
+python verify_refactoring.py
+```
+
+## 📦 Deployment
+
+See [docs/DEPLOYMENT_STEP1_COMPLETE.md](docs/DEPLOYMENT_STEP1_COMPLETE.md) for deployment instructions.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch
+3. Make changes following the modular architecture
+4. Submit pull request
+
+## 📄 License
+
+MIT License
+
+## 🆘 Support
+
+- Check documentation in `docs/` folder
+- Run verification: `python verify_refactoring.py`
+- Review Django logs: `python manage.py runserver --verbosity 3`
+
+---
+
+**Version 2.0.0** - Refactored with clean architecture  
+Built with ❤️ using Django & React

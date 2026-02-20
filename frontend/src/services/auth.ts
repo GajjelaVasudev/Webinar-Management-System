@@ -28,8 +28,8 @@ interface UserProfile {
 const authService = {
     login: async (username: string, password: string): Promise<LoginResponse> => {
         try {
-            console.log('Auth service: Sending login request to /auth/login/');
-            const response = await apiClient.post<LoginResponse>('/auth/login/', {
+            console.log('Auth service: Sending login request to /accounts/auth/login/');
+            const response = await apiClient.post<LoginResponse>('/accounts/auth/login/', {
                 username,
                 password,
             });
@@ -50,7 +50,7 @@ const authService = {
     register: async (username: string, email: string, password: string): Promise<RegisterResponse> => {
         try {
             console.log('Auth service: Sending registration request');
-            const response = await apiClient.post<RegisterResponse>('/auth/register/', {
+            const response = await apiClient.post<RegisterResponse>('/accounts/auth/register/', {
                 username,
                 email,
                 password,
@@ -85,7 +85,7 @@ const authService = {
 
     getUserProfile: async (): Promise<UserProfile> => {
         try {
-            const response = await apiClient.get<UserProfile>('/users/profile/me/');
+            const response = await apiClient.get<UserProfile>('/accounts/users/me/');
             return response.data;
         } catch (error) {
             console.error('Failed to fetch user profile:', error);
@@ -95,7 +95,7 @@ const authService = {
 
     getMe: async (): Promise<UserProfile> => {
         try {
-            const response = await apiClient.get<UserProfile>('/users/profile/me/');
+            const response = await apiClient.get<UserProfile>('/accounts/users/me/');
             return response.data;
         } catch (error) {
             console.error('Failed to fetch current user:', error);

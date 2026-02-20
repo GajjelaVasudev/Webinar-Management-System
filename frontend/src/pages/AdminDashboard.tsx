@@ -376,19 +376,17 @@ const AdminDashboard: React.FC = () => {
   const fetchDashboardData = async (): Promise<void> => {
     try {
       setLoading(true);
-      const [webinarsRes, recordingsRes, registrationsRes, statsRes, usersRes, announcementsRes] = await Promise.all([
+      const [webinarsRes, recordingsRes, registrationsRes, usersRes, announcementsRes] = await Promise.all([
         apiClient.get('/webinars/'),
         apiClient.get('/recordings/'),
         apiClient.get('/registrations/'),
-        apiClient.get('/stats/dashboard/'),
-        apiClient.get('/users/admin/'),
-        apiClient.get('/announcements/'),
+        apiClient.get('/accounts/users/'),
+        apiClient.get('/communications/announcements/'),
       ]);
       
       const webinarsData = webinarsRes.data.results || webinarsRes.data;
       const recordingsData = recordingsRes.data.results || recordingsRes.data;
       const registrationsData = registrationsRes.data.results || registrationsRes.data;
-      const statsData = statsRes.data;
       const usersData = usersRes.data.results || usersRes.data;
       const announcementsData = announcementsRes.data.results || announcementsRes.data;
       
@@ -401,11 +399,15 @@ const AdminDashboard: React.FC = () => {
       // Fetch notifications separately
       fetchNotifications();
       
+      // Calculate stats from data
+      const upcomingCount = webinarsData.filter((w: any) => w.status === 'upcoming').length;
+      const completedCount = webinarsData.filter((w: any) => w.status === 'completed').length;
+      
       setStats({
-        totalWebinars: statsData.total_webinars ?? webinarsData.length,
-        totalRegistrations: statsData.total_registrations ?? registrationsData.length,
-        upcomingWebinars: statsData.upcoming_webinars ?? 0,
-        completedWebinars: statsData.completed_webinars ?? 0,
+        totalWebinars: webinarsData.length,
+        totalRegistrations: registrationsData.length,
+        upcomingWebinars: upcomingCount,
+        completedWebinars: completedCount,
       });
       setError(null);
     } catch (err) {
@@ -501,7 +503,7 @@ const AdminDashboard: React.FC = () => {
 
     setActionLoading(true);
     try {
-      const response = await apiClient.post('/announcements/send_to_all/', announcementForm);
+      const response = await apiClient.post('/communications/announcements/', announcementForm);
       setAnnouncements([response.data, ...announcements]);
       setAnnouncementForm({ title: '', content: '' });
       addToast('success', 'Announcement sent to all users');
@@ -519,7 +521,7 @@ const AdminDashboard: React.FC = () => {
       'This will permanently remove the announcement.',
       async () => {
         try {
-          await apiClient.delete(`/announcements/${announcementId}/`);
+          await apiClient.delete(`/communications/announcements/${announcementId}/`);
           setAnnouncements(announcements.filter(a => a.id !== announcementId));
           addToast('success', 'Announcement deleted');
         } catch (err) {
@@ -532,10 +534,10 @@ const AdminDashboard: React.FC = () => {
 
   const fetchNotifications = async () => {
     try {
-      const { data } = await apiClient.get('/notifications/recent/');
+      const { data } = await apiClient.get('/communications/notifications/recent/');
       setNotifications(data || []);
       
-      const countRes = await apiClient.get('/notifications/unread_count/');
+      const countRes = await apiClient.get('/communications/notifications/unread_count/');
       setUnreadCount(countRes.data.unread_count || 0);
     } catch (err: any) {
       console.error('Failed to fetch notifications:', err);
@@ -544,7 +546,7 @@ const AdminDashboard: React.FC = () => {
 
   const markAsRead = async (notificationId: number) => {
     try {
-      await apiClient.post(`/notifications/${notificationId}/mark_as_read/`);
+      await apiClient.post(`/communications/notifications/${notificationId}/mark_read/`);
       setNotifications(notifications.map(n => 
         n.id === notificationId ? { ...n, is_read: true } : n
       ));
@@ -556,7 +558,7 @@ const AdminDashboard: React.FC = () => {
 
   const markAllAsRead = async () => {
     try {
-      await apiClient.post('/notifications/mark_all_as_read/');
+      await apiClient.post('/communications/notifications/mark_all_read/');
       setNotifications(notifications.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);
     } catch (err) {

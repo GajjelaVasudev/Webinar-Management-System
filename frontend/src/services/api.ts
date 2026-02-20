@@ -1,8 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 
-const apiBaseURL = import.meta.env.VITE_API_BASE_URL 
-    ? `${import.meta.env.VITE_API_BASE_URL}/api`
-    : 'http://localhost:8000/api';
+// Use environment variable as-is, or default to localhost with /api prefix
+const apiBaseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 const apiClient: AxiosInstance = axios.create({
     baseURL: apiBaseURL,

@@ -431,7 +431,7 @@ const UserWebinarPortal = () => {
       }
       
       try {
-        const { data } = await apiClient.get("/users/profile/me/");
+        const { data } = await apiClient.get("/accounts/users/me/");
         setUserName(data?.name || data?.username || "User");
       } catch (err: any) {
         if (err?.response?.status === 401) {
@@ -527,8 +527,8 @@ const UserWebinarPortal = () => {
     setIsRegistering(true);
     try {
       const { data } = await apiClient.post<RegistrationResponse>(
-        `/webinars/${selectedWebinar.id}/register/`,
-        {}
+        `/registrations/register/`,
+        { event: selectedWebinar.id }
       );
       // refresh events to update registration flags
       await fetchEvents();
@@ -570,10 +570,10 @@ const UserWebinarPortal = () => {
 
   const fetchNotifications = async () => {
     try {
-      const { data } = await apiClient.get("/notifications/recent/");
+      const { data } = await apiClient.get("/communications/notifications/recent/");
       setNotifications(data || []);
       
-      const countRes = await apiClient.get("/notifications/unread_count/");
+      const countRes = await apiClient.get("/communications/notifications/unread_count/");
       setUnreadCount(countRes.data.unread_count || 0);
     } catch (err: any) {
       console.error('Failed to fetch notifications:', err);
@@ -582,7 +582,7 @@ const UserWebinarPortal = () => {
 
   const markAsRead = async (notificationId: number) => {
     try {
-      await apiClient.post(`/notifications/${notificationId}/mark_as_read/`);
+      await apiClient.post(`/communications/notifications/${notificationId}/mark_read/`);
       setNotifications(notifications.map(n => 
         n.id === notificationId ? { ...n, is_read: true } : n
       ));
@@ -594,7 +594,7 @@ const UserWebinarPortal = () => {
 
   const markAllAsRead = async () => {
     try {
-      await apiClient.post("/notifications/mark_all_as_read/");
+      await apiClient.post("/communications/notifications/mark_all_read/");
       setNotifications(notifications.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);
     } catch (err) {
@@ -1075,19 +1075,10 @@ const UserWebinarPortal = () => {
       
       try {
         setIsLoadingChat(true);
-        const response = await fetch(
-          `http://localhost:8000/api/chat/messages/?event_id=${selectedWebinar.id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-            },
-          }
+        const { data } = await apiClient.get(
+          `/communications/chat/?event=${selectedWebinar.id}`
         );
-        
-        if (response.ok) {
-          const data = await response.json();
-          setChatMessages(Array.isArray(data) ? data : data.results || []);
-        }
+        setChatMessages(Array.isArray(data) ? data : data.results || []);
       } catch (error) {
         console.error("Error fetching chat messages:", error);
       } finally {
@@ -1127,25 +1118,10 @@ const UserWebinarPortal = () => {
       setSendingMessage(true);
 
       try {
-        const response = await fetch("http://localhost:8000/api/chat/messages/", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-          body: JSON.stringify({
-            event: selectedWebinar.id,
-            message: messageInput,
-          }),
+        await apiClient.post("/communications/chat/", {
+          event: selectedWebinar.id,
+          message: messageInput,
         });
-
-        if (!response.ok) {
-          // Remove optimistic message on error
-          setChatMessages((prev) =>
-            prev.filter((m) => m.id !== optimisticMessage.id)
-          );
-          console.error("Error sending message:", response.statusText);
-        }
       } catch (error) {
         // Remove optimistic message on error
         setChatMessages((prev) =>
@@ -1477,19 +1453,9 @@ const UserWebinarPortal = () => {
       const fetchProfile = async () => {
         try {
           setIsLoading(true);
-          const response = await fetch("http://localhost:8000/api/users/profile/me/", {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-            },
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            setProfileData(data);
-            setEditName(data.user_info?.first_name || "");
-          } else {
-            setError("Failed to load profile");
-          }
+          const { data } = await apiClient.get("/accounts/users/me/");
+          setProfileData(data);
+          setEditName(data.user_info?.first_name || "");
         } catch (err) {
           setError("Error loading profile");
           console.error(err);
@@ -1508,27 +1474,14 @@ const UserWebinarPortal = () => {
       }
 
       try {
-        const response = await fetch("http://localhost:8000/api/users/profile/me/", {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        const { data } = await apiClient.patch("/accounts/users/me/", {
+          user_info: {
+            first_name: editName.trim(),
           },
-          body: JSON.stringify({
-            user_info: {
-              first_name: editName.trim(),
-            },
-          }),
         });
-
-        if (response.ok) {
-          const updated = await response.json();
-          setProfileData(updated);
-          setIsEditing(false);
-          setError("");
-        } else {
-          setError("Failed to update name");
-        }
+        setProfileData(data);
+        setIsEditing(false);
+        setError("");
       } catch (err) {
         setError("Error updating name");
         console.error(err);
@@ -1554,32 +1507,22 @@ const UserWebinarPortal = () => {
       }
 
       try {
-        const response = await fetch(
-          "http://localhost:8000/api/auth/change-password/",
+        await apiClient.post(
+          "/accounts/auth/change-password/",
           {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-            },
-            body: JSON.stringify({
-              current_password: changePasswordForm.currentPassword,
-              new_password: changePasswordForm.newPassword,
-            }),
+            current_password: changePasswordForm.currentPassword,
+            new_password: changePasswordForm.newPassword,
           }
         );
 
-        if (response.ok) {
-          setChangePasswordForm({
-            currentPassword: "",
-            newPassword: "",
-            confirmPassword: "",
-          });
-          setError("");
-          alert("Password changed successfully");
-        } else {
-          setError("Failed to change password. Check your current password.");
-        }
+        // Password changed successfully
+        setChangePasswordForm({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
+        setError("");
+        alert("Password changed successfully");
       } catch (err) {
         setError("Error changing password");
         console.error(err);

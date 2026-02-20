@@ -1,8 +1,17 @@
+# Core Django and REST Framework
 Django==6.0
 djangorestframework==3.14.0
 djangorestframework-simplejwt==5.5.1
 django-cors-headers==4.3.1
-gunicorn==21.2.0
+
+# Configuration and deployment
 python-decouple==3.8
+gunicorn==21.2.0
 whitenoise==6.6.0
+
+# Media handling
 Pillow==11.0.0
+
+# PostgreSQL support (optional - requires Microsoft Visual C++ 14.0+)
+# Uncomment if you need PostgreSQL database support
+# psycopg2-binary==2.9.9
