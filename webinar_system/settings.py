@@ -165,11 +165,14 @@ REST_FRAMEWORK = {
 # CORS Configuration for React Frontend
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://localhost:5173',
+    default='http://localhost:3000,http://localhost:5173,https://webinar-management-system-odoq.onrender.com',
     cast=lambda v: [s.strip() for s in v.split(',')]
 )
 
 CORS_ALLOW_CREDENTIALS = True
+
+# REST Framework Configuration for trailing slashes
+REST_FRAMEWORK['APPEND_SLASH'] = True
 
 # JWT Configuration
 from datetime import timedelta

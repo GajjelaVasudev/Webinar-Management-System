@@ -12,6 +12,5 @@ whitenoise==6.6.0
 # Media handling
 Pillow==11.0.0
 
-# PostgreSQL support (optional - requires Microsoft Visual C++ 14.0+)
-# Uncomment if you need PostgreSQL database support
-# psycopg2-binary==2.9.9
+# PostgreSQL support (required for production)
+psycopg2-binary==2.9.9
