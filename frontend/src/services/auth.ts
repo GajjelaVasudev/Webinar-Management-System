@@ -54,6 +54,7 @@ const authService = {
                 username,
                 email,
                 password,
+                password_confirm: password,
             });
             console.log('Auth service: Registration successful');
             return response.data;

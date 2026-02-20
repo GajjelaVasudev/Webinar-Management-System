@@ -13,7 +13,10 @@ const apiClient: AxiosInstance = axios.create({
 apiClient.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('access_token');
-        if (token) {
+        const requestPath = config.url || '';
+        const isAuthEndpoint = requestPath.startsWith('/accounts/auth/');
+
+        if (token && !isAuthEndpoint) {
             config.headers.Authorization = `Bearer ${token}`;
         }
         console.log(`API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);

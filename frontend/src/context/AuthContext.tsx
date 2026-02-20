@@ -55,6 +55,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 localStorage.setItem('user_role', profile.role);
             } catch (error) {
                 console.error('Failed to bootstrap auth state:', error);
+                authService.logout();
                 setIsAuthenticated(false);
                 setUser(null);
                 setRole(null);
