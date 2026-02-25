@@ -68,6 +68,10 @@ const AuthPage = () => {
   
   const navigate = useNavigate();
   const { login, register } = useAuth();
+  const testAccounts = {
+    admin: { username: 'admin', password: 'admin123' },
+    student: { username: 'student', password: 'student123' },
+  };
 
   // Update form mode when URL parameter changes
   useEffect(() => {
@@ -100,19 +104,8 @@ const AuthPage = () => {
           setLoading(false);
           return;
         }
-        
-        // Login
-        console.log('Attempting login with:', loginIdentifier);
-        const response = await login(loginIdentifier, formData.password);
-        console.log('Login successful:', response);
-        const userRole = response.user?.role || 'user';
-        
-        // Redirect based on role
-        if (userRole === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/user-portal');
-        }
+
+        await runLogin(loginIdentifier, formData.password);
       } else {
         // Register - validate all fields
         if (!formData.username || !formData.email || !formData.password) {
@@ -130,6 +123,39 @@ const AuthPage = () => {
       console.error('Auth error:', err);
       const errorMessage = err.response?.data?.detail || 
                           err.response?.data?.error || 
+                          err.message ||
+                          'Authentication failed. Please try again.';
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const runLogin = async (loginIdentifier: string, password: string) => {
+    console.log('Attempting login with:', loginIdentifier);
+    const response = await login(loginIdentifier, password);
+    console.log('Login successful:', response);
+    const userRole = response.user?.role || 'user';
+
+    if (userRole === 'admin') {
+      navigate('/admin');
+    } else {
+      navigate('/user-portal');
+    }
+  };
+
+  const handleQuickLogin = async (accountKey: 'admin' | 'student') => {
+    const account = testAccounts[accountKey];
+    setFormData({ username: account.username, email: '', password: account.password });
+    setLoading(true);
+    setError(null);
+
+    try {
+      await runLogin(account.username, account.password);
+    } catch (err: any) {
+      console.error('Auth error:', err);
+      const errorMessage = err.response?.data?.detail ||
+                          err.response?.data?.error ||
                           err.message ||
                           'Authentication failed. Please try again.';
       setError(errorMessage);
@@ -211,6 +237,26 @@ const AuthPage = () => {
                           </div>
                         )}
             </p>
+            {isLogin && (
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('admin')}
+                  disabled={loading}
+                  className="w-full rounded-lg border border-pink-200 bg-pink-50 text-pink-700 font-semibold py-2.5 hover:bg-pink-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Test Admin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('student')}
+                  disabled={loading}
+                  className="w-full rounded-lg border border-blue-200 bg-blue-50 text-blue-700 font-semibold py-2.5 hover:bg-blue-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Test Student
+                </button>
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleSubmit}>
