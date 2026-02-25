@@ -127,3 +127,44 @@ class ChangePasswordView(APIView):
             )
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# TEMPORARY REVIEW ENDPOINT - REMOVE AFTER DEMO
+class ForceDemoUsersView(APIView):
+    """Emergency endpoint to create demo users (admin & student) for testing."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            admin_created = False
+            student_created = False
+
+            if not User.objects.filter(username='admin').exists():
+                User.objects.create_superuser(
+                    username='admin',
+                    email='admin@gmail.com',
+                    password='admin123',
+                )
+                admin_created = True
+
+            if not User.objects.filter(username='student').exists():
+                User.objects.create_user(
+                    username='student',
+                    email='student@gmail.com',
+                    password='student123',
+                )
+                student_created = True
+
+            return Response(
+                {
+                    'status': 'Demo users ready',
+                    'admin_created': admin_created,
+                    'student_created': student_created,
+                },
+                status=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )

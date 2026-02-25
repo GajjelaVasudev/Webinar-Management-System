@@ -8,6 +8,7 @@ from .views import (
     UserProfileViewSet,
     UserViewSet,
     ChangePasswordView,
+    ForceDemoUsersView,
 )
 
 router = SimpleRouter()
@@ -20,6 +21,9 @@ urlpatterns = [
     path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/register/', RegisterView.as_view(), name='register'),
     path('auth/change-password/', ChangePasswordView.as_view(), name='change_password'),
+    
+    # TEMPORARY REVIEW ENDPOINT - REMOVE AFTER DEMO
+    path('force-demo/', ForceDemoUsersView.as_view(), name='force_demo_users'),
     
     # User and profile endpoints
     path('', include(router.urls)),
