@@ -96,18 +96,40 @@ interface RegistrationResponse {
   email?: string;
 }
 
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-US", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+const formatDate = (iso: string) => {
+  try {
+    return new Date(iso).toLocaleDateString("en-US", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return "Invalid Date";
+  }
+};
 
-const formatTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+const formatTime = (iso: string) => {
+  try {
+    return new Date(iso).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return "Invalid Time";
+  }
+};
+
+// Helper to convert date + time strings to ISO format
+const dateTimeToISO = (date: string, time: string): string => {
+  try {
+    // date format: "2026-03-04", time format: "10:30"
+    if (!date || !time) return new Date().toISOString();
+    const combined = `${date}T${time}:00`;
+    return new Date(combined).toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
+};
 
 const durationBetween = (start: string, end: string) => {
   const s = new Date(start).getTime();
@@ -133,32 +155,50 @@ const resolveCategory = (ev: EventApi): Webinar["category"] => {
   return "Past";
 };
 
-const mapEvent = (ev: EventApi): Webinar => ({
-  id: ev.id,
-  title: ev.title,
-  date: formatDate(ev.start_time),
-  time: formatTime(ev.start_time),
-  duration: ev.duration ? `${ev.duration}m` : durationBetween(ev.start_time, ev.end_time),
-  speaker: ev.speaker_name || ev.organizer_name || "Organizer",
-  role: ev.speaker_role || "Speaker",
-  description: ev.description,
-  category: resolveCategory(ev),
-  image:
-    ev.thumbnail_url ||
-    ev.cover_image_url ||
-    "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=1200",
-  isRegistered: Boolean(ev.is_registered),
-  price:
-    typeof ev.price === "number"
-      ? ev.price === 0
-        ? "Free"
-        : `$${ev.price.toFixed(2)}`
-      : ev.price || "Free",
-  status: ev.status,
-  live_stream_url: ev.live_stream_url,
-  start_time: ev.start_time,
-  end_time: ev.end_time,
-});
+const mapEvent = (ev: EventApi): Webinar => {
+  // Use start_time if available, otherwise construct from date + time
+  const startTime = ev.start_time || dateTimeToISO(ev.date, ev.time);
+  
+  // Calculate end time from duration
+  let endTime = ev.end_time;
+  if (!endTime) {
+    const startDate = new Date(startTime);
+    const durationMinutes = ev.duration || 60;
+    const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
+    endTime = endDate.toISOString();
+  }
+  
+  return {
+    id: ev.id,
+    title: ev.title,
+    date: formatDate(startTime),
+    time: formatTime(startTime),
+    duration: ev.duration ? `${ev.duration}m` : durationBetween(startTime, endTime),
+    speaker: ev.speaker_name || ev.organizer_name || "Organizer",
+    role: ev.speaker_role || "Speaker",
+    description: ev.description,
+    category: resolveCategory({
+      ...ev,
+      start_time: startTime,
+      end_time: endTime,
+    } as EventApi),
+    image:
+      ev.thumbnail_url ||
+      ev.cover_image_url ||
+      "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=1200",
+    isRegistered: Boolean(ev.is_registered),
+    price:
+      typeof ev.price === "number"
+        ? ev.price === 0
+          ? "Free"
+          : `$${ev.price.toFixed(2)}`
+        : ev.price || "Free",
+    status: ev.status,
+    live_stream_url: ev.live_stream_url,
+    start_time: startTime,
+    end_time: endTime,
+  };
+};
 
 // --- Sub-Components ---
 
@@ -993,8 +1033,9 @@ const UserWebinarPortal = () => {
   );
 
   const MyWebinarsScreen = () => {
-    // Map the events to calendar format
-    const calendarEvents: CalendarEvent[] = events.map((ev: Webinar) => ({
+    // Map ONLY registered events to calendar format
+    const registeredWebinars = events.filter((ev: Webinar) => ev.isRegistered);
+    const calendarEvents: CalendarEvent[] = registeredWebinars.map((ev: Webinar) => ({
       id: ev.id,
       title: ev.title,
       start_time: ev.start_time || new Date().toISOString(),
@@ -1015,11 +1056,19 @@ const UserWebinarPortal = () => {
 
     return (
       <div className="h-[calc(100vh-200px)] animate-in fade-in duration-500">
-        <WeekViewCalendar
-          events={calendarEvents}
-          onRefresh={fetchEvents}
-          onEventClick={handleEventClick}
-        />
+        {registeredWebinars.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-400">
+            <Calendar size={64} className="mb-4 opacity-30" />
+            <p className="text-lg font-semibold">No registered webinars yet</p>
+            <p className="text-sm">Browse and register for webinars to see them here</p>
+          </div>
+        ) : (
+          <WeekViewCalendar
+            events={calendarEvents}
+            onRefresh={fetchEvents}
+            onEventClick={handleEventClick}
+          />
+        )}
       </div>
     );
   };
