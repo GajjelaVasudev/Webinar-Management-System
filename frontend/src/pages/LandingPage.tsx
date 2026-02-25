@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Play,
@@ -392,63 +392,6 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Schedule Section */}
-      <section className="py-24 bg-[#1e1b4b] text-white scroll-reveal">
-        <div className="text-center mb-20">
-          <span className="text-gray-400 text-xs uppercase tracking-wider font-semibold">
-            Event Schedule
-          </span>
-          <h2 className="text-4xl font-bold mt-4">
-            Featured Tech Webinar Sessions
-          </h2>
-        </div>
-
-        <div className="max-w-5xl mx-auto px-6">
-          {[
-            { date: 15, month: "Mar", year: 2026, title: "AI & Machine Learning in Enterprise", speaker: "Sarah Chen", time: "10:00am - 11:00am" },
-            { date: 18, month: "Mar", year: 2026, title: "Cloud Architecture Best Practices", speaker: "David Kumar", time: "2:00pm - 3:00pm" },
-            { date: 22, month: "Mar", year: 2026, title: "DevOps & CI/CD Pipelines", speaker: "Alex Rodriguez", time: "3:00pm - 4:00pm" },
-            { date: 25, month: "Mar", year: 2026, title: "Web Security & Compliance", speaker: "Jennifer Lee", time: "10:00am - 11:00am" },
-            { date: 28, month: "Mar", year: 2026, title: "Scaling React Applications", speaker: "Marcus Williams", time: "1:00pm - 2:00pm" }
-          ].map((item, idx) => (
-            <div
-              key={idx}
-              className={`flex flex-col md:flex-row items-center justify-between py-8 hover:bg-white/5 px-6 rounded-xl transition-all duration-300 ${
-                idx !== 4 ? "border-b border-dashed border-gray-700" : ""
-              }`}
-            >
-              <div className="flex items-center space-x-6 w-full md:w-auto mb-4 md:mb-0">
-                <div className="text-center min-w-[80px]">
-                  <span className="text-4xl font-bold block">{item.date}</span>
-                  <span className="text-sm text-gray-400">
-                    {item.month}
-                    <br />
-                    {item.year}
-                  </span>
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold mb-2">{item.title}</h3>
-                  <div className="flex flex-col space-y-1 text-sm text-gray-400">
-                    <span className="flex items-center">
-                      <span className="text-pink-400 mr-2 font-semibold">Speaker:</span> {item.speaker}
-                    </span>
-                    <span className="flex items-center">
-                      <Clock size={14} className="mr-2 text-pink-400" /> {item.time}
-                    </span>
-                    <span className="flex items-center">
-                      <MapPin size={14} className="mr-2 text-pink-400" /> Online • Live Streaming Platform
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <button className="bg-gradient-to-r from-pink-500 to-purple-600 px-8 py-3 rounded-full font-semibold hover:shadow-lg hover:shadow-pink-500/50 transition-all duration-200 w-full md:w-auto">
-                Reserve Seat
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* Stats Section */}
       <section className="max-w-7xl mx-auto px-6 -mt-10 mb-24 relative z-20 scroll-reveal">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-white text-center">
@@ -535,23 +478,6 @@ const LandingPage: React.FC = () => {
               </div>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="bg-gradient-to-br from-[#1e1b4b] via-[#2e1065] to-[#db2777] py-24 relative overflow-hidden">
-        <div className="absolute top-0 left-0 opacity-10"><div className="grid grid-cols-10 gap-4">{[...Array(50)].map((_, i) => (<div key={i} className="w-1 h-1 bg-white rounded-full"></div>))}</div></div>
-        <div className="relative z-10 text-center max-w-3xl mx-auto px-6">
-          <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
-            Secure Your Access Today
-          </h2>
-          <p className="text-gray-200 text-lg mb-10 leading-relaxed">
-            Limited seats available. Join thousands of professionals building the future of technology. Get exclusive access to expert sessions, networking opportunities, and valuable resources.
-          </p>
-          <button className="bg-pink-500 hover:bg-pink-600 text-white px-12 py-4 rounded-full font-bold text-lg transition-all duration-200 shadow-lg shadow-pink-500/40 hover:shadow-pink-500/50">
-            Register Now
-          </button>
-          <p className="text-gray-400 text-sm mt-6">Early bird pricing available. Spots filling fast!</p>
         </div>
       </section>
 
