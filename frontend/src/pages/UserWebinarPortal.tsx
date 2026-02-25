@@ -24,6 +24,9 @@ import {
 import { useNavigate } from "react-router-dom";
 import apiClient from "../services/api";
 import authService from "../services/auth";
+import Logo from "../components/Logo";
+import WeekViewCalendar from "../components/WeekViewCalendar";
+import { CalendarEvent } from "../utils/calendarUtils";
 
 type ViewState =
   | "home"
@@ -50,6 +53,8 @@ interface Webinar {
   price: string;
   status?: "upcoming" | "live" | "completed";
   live_stream_url?: string;
+  start_time?: string; // ISO string
+  end_time?: string; // ISO string
 }
 
 interface EventApi {
@@ -151,6 +156,8 @@ const mapEvent = (ev: EventApi): Webinar => ({
       : ev.price || "Free",
   status: ev.status,
   live_stream_url: ev.live_stream_url,
+  start_time: ev.start_time,
+  end_time: ev.end_time,
 });
 
 // --- Sub-Components ---
@@ -178,12 +185,11 @@ const Header = ({
 }) => (
   <nav className="bg-[#1e1b4b] text-white px-8 py-5 sticky top-0 z-50 shadow-xl border-b border-white/10">
     <div className="max-w-7xl mx-auto flex justify-between items-center">
-      <div
-        className="text-xl font-extrabold uppercase tracking-widest cursor-pointer hover:opacity-80 transition"
+      <Logo
+        theme="white"
+        className="cursor-pointer hover:opacity-80 transition"
         onClick={() => setView("home")}
-      >
-        Logo Here
-      </div>
+      />
 
       <div className="hidden md:flex space-x-8 text-sm font-medium">
         {[
@@ -986,76 +992,37 @@ const UserWebinarPortal = () => {
     </div>
   );
 
-  const MyWebinarsScreen = () => (
-    <div className="animate-in fade-in duration-500">
-      <div className="flex justify-between items-center mb-10">
-        <h1 className="text-3xl font-bold text-slate-900">My Schedule</h1>
-        <div className="flex bg-white rounded-lg p-1 border border-gray-200">
-          {["Upcoming", "Past"].map((t) => (
-            <button
-              key={t}
-              className="px-4 py-1.5 text-sm font-bold rounded-md hover:bg-gray-50 text-gray-500"
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+  const MyWebinarsScreen = () => {
+    // Map the events to calendar format
+    const calendarEvents: CalendarEvent[] = events.map((ev: Webinar) => ({
+      id: ev.id,
+      title: ev.title,
+      start_time: ev.start_time || new Date().toISOString(),
+      end_time: ev.end_time || new Date().toISOString(),
+      speaker: ev.speaker,
+      description: ev.description,
+      status: ev.status,
+    }));
+
+    const handleEventClick = (event: CalendarEvent) => {
+      // Find the full webinar data
+      const webinar = events.find((w: Webinar) => w.id === event.id);
+      if (webinar) {
+        setSelectedWebinar(webinar);
+        setView("details");
+      }
+    };
+
+    return (
+      <div className="h-[calc(100vh-200px)] animate-in fade-in duration-500">
+        <WeekViewCalendar
+          events={calendarEvents}
+          onRefresh={fetchEvents}
+          onEventClick={handleEventClick}
+        />
       </div>
-
-      {liveRegistrations.map((w) => (
-        <div
-          key={w.id}
-          className="bg-[#1e1b4b] rounded-2xl p-8 mb-10 text-white relative overflow-hidden shadow-2xl flex flex-col md:flex-row items-center justify-between group"
-        >
-          <div className="absolute top-0 right-0 w-64 h-64 bg-pink-500 rounded-full blur-[80px] opacity-20"></div>
-
-          <div className="flex items-center space-x-8 relative z-10">
-            <div className="relative">
-              <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-              </span>
-              <img
-                src={w.image}
-                className="w-32 h-24 object-cover rounded-lg border-2 border-white/20"
-                alt="Thumb"
-              />
-            </div>
-            <div>
-              <div className="text-pink-400 font-bold tracking-widest text-xs uppercase mb-2 animate-pulse">
-                Happening Now
-              </div>
-              <h3 className="text-2xl font-bold mb-1">{w.title}</h3>
-              <p className="text-gray-400 text-sm">
-                Started • {w.speaker}
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => {
-              setSelectedWebinar(w);
-              setView("live");
-            }}
-            className="mt-6 md:mt-0 bg-gradient-to-r from-pink-500 to-purple-600 hover:shadow-[0_0_20px_rgba(236,72,153,0.5)] text-white px-10 py-3 rounded-full font-bold transition transform group-hover:scale-105"
-          >
-            Join Room
-          </button>
-        </div>
-      ))}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {myRegistered
-          .filter((w) => w.category !== "Live")
-          .map((w) => (
-            <WebinarCard key={w.id} data={w} onClick={handleWebinarClick} />
-          ))}
-        {myRegistered.length === 0 && (
-          <div className="text-sm text-gray-500">No registrations yet.</div>
-        )}
-      </div>
-    </div>
-  );
+    );
+  };
 
   const LiveSessionScreen = () => {
     const [chatMessages, setChatMessages] = React.useState<any[]>([]);

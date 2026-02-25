@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Mail,
   Lock,
@@ -7,7 +7,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 // Shared Components
@@ -55,7 +55,9 @@ const SocialButton = ({ label, bg }: { label: string; bg: string }) => (
 );
 
 const AuthPage = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [searchParams] = useSearchParams();
+  const modeParam = searchParams.get('mode');
+  const [isLogin, setIsLogin] = useState(modeParam === 'register' ? false : true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -66,6 +68,15 @@ const AuthPage = () => {
   
   const navigate = useNavigate();
   const { login, register } = useAuth();
+
+  // Update form mode when URL parameter changes
+  useEffect(() => {
+    if (modeParam === 'register') {
+      setIsLogin(false);
+    } else {
+      setIsLogin(true);
+    }
+  }, [modeParam]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({

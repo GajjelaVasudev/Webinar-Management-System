@@ -1,367 +1,431 @@
-# 🎓 Webinar Management System
+# Webinar Management System
 
-A professional, scalable Django REST Framework + React application for managing webinars, registrations, recordings, and communications.
+A modern, full-stack webinar management platform built with Django REST Framework and React, featuring JWT authentication, role-based access control, and comprehensive event management capabilities.
 
-## 🏗️ Architecture
+## 📋 Project Overview
 
-This project follows **clean Django architecture** with modular, domain-driven design:
+This system enables organizations to host, manage, and record webinars with features including user registration, live event management, recording access, announcements, and real-time chat functionality. The application follows a clean, modular architecture with separated concerns across multiple Django apps.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Frontend (React)                      │
-│                  Vite + TypeScript                       │
-└────────────────────┬────────────────────────────────────┘
-                     │ HTTP/REST API
-┌────────────────────▼────────────────────────────────────┐
-│                   Django Backend                         │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │          webinar_system (Project Config)         │  │
-│  └──────────────────────────────────────────────────┘  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐    │
-│  │ accounts │  │ webinars │  │ registrations    │    │
-│  │ • Auth   │  │ • Events │  │ • Sign-ups       │    │
-│  │ • Users  │  │ • Status │  │ • Attendance     │    │
-│  └──────────┘  └──────────┘  └──────────────────┘    │
-│  ┌──────────┐  ┌─────────────────────────────────┐    │
-│  │recordings│  │    communications                │    │
-│  │ • Videos │  │    • Announcements               │    │
-│  │ • Links  │  │    • Notifications               │    │
-│  └──────────┘  │    • Live Chat                   │    │
-│                 └─────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────────────┐
-│              Database (PostgreSQL/SQLite)                │
-└─────────────────────────────────────────────────────────┘
-```
+## 🛠️ Tech Stack
 
----
+### Backend
+- **Framework:** Django 6.0
+- **API:** Django REST Framework 3.14.0
+- **Authentication:** JWT (djangorestframework-simplejwt)
+- **CORS Handling:** django-cors-headers
+- **Server:** Gunicorn (production)
+- **Static Files:** WhiteNoise
+
+### Frontend
+- **Framework:** React 18.3.1
+- **Language:** TypeScript 5.7.3
+- **Build Tool:** Vite 5.4.11
+- **Styling:** Tailwind CSS 3.4.17
+- **HTTP Client:** Axios
+- **Icons:** Lucide React
+- **Date Handling:** date-fns
+
+### Database
+- **PostgreSQL** (via psycopg2-binary)
 
 ## 📁 Project Structure
 
 ```
 PFSD-PROJECT/
-├── 🔧 webinar_system/       # Django project configuration
-├── 👤 accounts/             # User management & authentication
-├── 🎥 webinars/             # Webinar/event management
-├── 📝 registrations/        # User registrations for events
-├── 🎬 recordings/           # Webinar recordings
-├── 💬 communications/       # Announcements, notifications, chat
-├── ⚛️  frontend/            # React application
-├── 📚 docs/                 # Documentation
-├── 🧪 tests/                # Test files
-└── 📁 media/                # User uploads
+├── webinar_system/          # Django project configuration
+│   ├── settings.py          # Main settings file
+│   ├── urls.py              # Root URL configuration
+│   └── wsgi.py              # WSGI application
+│
+├── accounts/                # User authentication & profiles
+│   ├── models.py            # UserProfile model
+│   ├── views.py             # Auth views (login, register, etc.)
+│   ├── serializers.py       # User serializers
+│   ├── permissions.py       # Custom permissions (IsAdmin)
+│   └── urls.py              # /api/accounts/* endpoints
+│
+├── webinars/                # Event/webinar management
+│   ├── models.py            # Event model
+│   ├── views.py             # CRUD operations for events
+│   ├── serializers.py       # Event serializers
+│   └── urls.py              # /api/webinars/* endpoints
+│
+├── registrations/           # User registrations for webinars
+│   ├── models.py            # Registration model
+│   ├── views.py             # Register/unregister logic
+│   ├── serializers.py       # Registration serializers
+│   └── urls.py              # /api/registrations/* endpoints
+│
+├── recordings/              # Webinar recording management
+│   ├── models.py            # Recording model
+│   ├── views.py             # Recording CRUD operations
+│   ├── serializers.py       # Recording serializers
+│   └── urls.py              # /api/recordings/* endpoints
+│
+├── communications/          # Announcements, notifications, chat
+│   ├── models.py            # Announcement, Notification, Chat models
+│   ├── views.py             # Communication endpoints
+│   ├── serializers.py       # Communication serializers
+│   └── urls.py              # /api/communications/* endpoints
+│
+├── frontend/                # React application
+│   ├── src/
+│   │   ├── components/      # Reusable React components
+│   │   ├── pages/           # Page-level components
+│   │   ├── services/        # API service layer
+│   │   ├── types/           # TypeScript type definitions
+│   │   └── App.tsx          # Main application component
+│   ├── public/              # Static assets
+│   └── package.json         # Frontend dependencies
+│
+├── docs/                    # Comprehensive documentation
+│   ├── API_REFERENCE.md     # Complete API documentation
+│   ├── ARCHITECTURE_DIAGRAMS.md
+│   ├── TESTING_GUIDE.md
+│   └── ... (additional documentation)
+│
+├── tests/                   # Organized test files
+├── media/                   # User-uploaded files
+├── manage.py                # Django management script
+├── requirements.txt         # Python dependencies
+├── render-build.sh          # Render deployment script
+├── render.yaml              # Render configuration
+└── Procfile                 # Process file for deployment
 ```
 
----
-
-## 🚀 Quick Start
+## 🚀 Local Setup Instructions
 
 ### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL (or SQLite for development)
+- Python 3.10 or higher
+- Node.js 18 or higher
+- npm or yarn
 
 ### Backend Setup
 
-```powershell
-# Create virtual environment
-python -m venv .venv
-.venv\Scripts\Activate
+1. **Clone the repository:**
+   ```bash
+   cd PFSD-PROJECT
+   ```
 
-# Install dependencies
-pip install -r requirements.txt
+2. **Create and activate virtual environment:**
+   ```powershell
+   # Windows PowerShell
+   python -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+   ```
 
-# Run migrations
-python manage.py migrate
+3. **Install Python dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-# Create superuser
-python manage.py createsuperuser
+4. **Run database migrations:**
+   ```bash
+   python manage.py migrate
+   ```
 
-# Start development server
-python manage.py runserver
-```
+5. **Create a superuser/admin:**
+   ```bash
+   python manage.py createsuperuser
+   ```
+   Follow the prompts to enter username, email, and password.
 
-Backend will run at: `http://localhost:8000`
+6. **Start the Django development server:**
+   ```bash
+   python manage.py runserver
+   ```
+   Backend will run on `http://localhost:8000`
 
 ### Frontend Setup
 
-```powershell
-cd frontend
-npm install
-npm run dev
+1. **Navigate to frontend directory:**
+   ```bash
+   cd frontend
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Start the development server:**
+   ```bash
+   npm run dev
+   ```
+   Frontend will run on `http://localhost:5173`
+
+### Access the Application
+
+- **Frontend:** http://localhost:5173
+- **Backend API:** http://localhost:8000/api/
+- **Admin Panel:** http://localhost:8000/admin/
+
+## 🌐 Deployment Instructions
+
+### Backend Deployment (Render)
+
+1. **Create a PostgreSQL database on Render:**
+   - Go to Render Dashboard → New → PostgreSQL
+   - Name: `webinar-db`
+   - Region: Choose your preferred region
+   - Save connection details (shown once!)
+
+2. **Create Web Service on Render:**
+   - New → Web Service
+   - Connect your Git repository
+   - Name: `webinar-backend`
+   - Environment: Python
+   - Region: Same as database
+   - Build Command: `bash ./render-build.sh`
+   - Start Command: `gunicorn webinar_system.wsgi:application --bind 0.0.0.0:$PORT`
+
+3. **Configure Environment Variables** (see Environment Variables section below)
+
+4. **Deploy:**
+   - Render will automatically build and deploy
+   - First deployment may take 10-15 minutes
+
+### Frontend Deployment (Vercel/Netlify)
+
+1. **Build the frontend:**
+   ```bash
+   cd frontend
+   npm run build
+   ```
+
+2. **Deploy to Vercel:**
+   - Connect your Git repository to Vercel
+   - Set build command: `npm run build`
+   - Set output directory: `dist`
+   - Add environment variable: `VITE_API_BASE_URL` with your Render backend URL
+
+3. **Or deploy to Netlify:**
+   - Similar process to Vercel
+   - Configure build settings in `netlify.toml` or dashboard
+
+## 🔐 Environment Variables
+
+### Backend (.env)
+
+```env
+# Django Core
+SECRET_KEY=your-secret-key-here-change-this-in-production
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+
+# PostgreSQL Database
+DB_NAME=webinar_db
+DB_USER=postgres
+DB_PASSWORD=your-database-password
+DB_HOST=localhost
+DB_PORT=5432
+
+# CORS
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+
+# JWT
+JWT_ACCESS_TOKEN_LIFETIME=60
+JWT_REFRESH_TOKEN_LIFETIME=10080
 ```
 
-Frontend will run at: `http://localhost:5173`
+### Frontend (.env.local for development)
 
----
+```env
+VITE_API_BASE_URL=http://localhost:8000/api
+```
+
+### Production Environment Variables (Render)
+
+Set these in Render Dashboard → Environment:
+
+| Variable | Description | Example Value |
+|----------|-------------|---------------|
+| `SECRET_KEY` | Django secret key (generate new one) | `django-insecure-xxxxx` |
+| `DEBUG` | Debug mode (always False in prod) | `False` |
+| `ALLOWED_HOSTS` | Allowed host domains | `your-app.onrender.com` |
+| `DB_NAME` | Database name from Render | From PostgreSQL settings |
+| `DB_USER` | Database user | `postgres` |
+| `DB_PASSWORD` | Database password | From PostgreSQL settings |
+| `DB_HOST` | Database host | From PostgreSQL settings |
+| `DB_PORT` | Database port | `5432` |
+| `CORS_ALLOWED_ORIGINS` | Frontend domain(s) | `https://your-frontend.vercel.app` |
 
 ## 📡 API Endpoints
 
-### Authentication (`/api/accounts/`)
-- `POST /api/accounts/auth/login/` - Login (JWT)
+All API endpoints use the `/api/` prefix:
+
+### Authentication
 - `POST /api/accounts/auth/register/` - Register new user
-- `POST /api/accounts/auth/refresh/` - Refresh access token
-- `POST /api/accounts/auth/change-password/` - Change password
-- `GET /api/accounts/users/me/` - Get current user info
+- `POST /api/accounts/auth/login/` - User login (returns JWT tokens)
+- `POST /api/accounts/auth/token/refresh/` - Refresh access token
+- `GET /api/accounts/profile/` - Get current user profile
+- `PUT /api/accounts/profile/` - Update user profile
 
-### Webinars (`/api/webinars/`)
+### Webinars
 - `GET /api/webinars/` - List all webinars
-- `POST /api/webinars/` - Create webinar (admin)
+- `POST /api/webinars/` - Create webinar (admin only)
 - `GET /api/webinars/{id}/` - Get webinar details
-- `PUT /api/webinars/{id}/` - Update webinar (admin)
-- `DELETE /api/webinars/{id}/` - Delete webinar (admin)
-- `GET /api/webinars/upcoming/` - Get upcoming webinars
-- `GET /api/webinars/live/` - Get live webinars
-- `GET /api/webinars/completed/` - Get completed webinars
+- `PUT /api/webinars/{id}/` - Update webinar (admin only)
+- `DELETE /api/webinars/{id}/` - Delete webinar (admin only)
 
-### Registrations (`/api/registrations/`)
-- `GET /api/registrations/` - List user's registrations
+### Registrations
 - `POST /api/registrations/register/` - Register for webinar
-- `DELETE /api/registrations/{id}/unregister/` - Unregister from webinar
-- `GET /api/registrations/my_registrations/` - Get my registrations
+- `POST /api/registrations/unregister/` - Unregister from webinar
+- `GET /api/registrations/my-registrations/` - Get user's registrations
+- `GET /api/registrations/` - List all registrations (admin only)
 
-### Recordings (`/api/recordings/`)
+### Recordings
 - `GET /api/recordings/` - List recordings
-- `POST /api/recordings/` - Upload recording (admin)
+- `POST /api/recordings/` - Upload recording (admin only)
 - `GET /api/recordings/{id}/` - Get recording details
-- `GET /api/recordings/public/` - Get public recordings
-- `GET /api/recordings/event_recordings/` - Get recordings for registered events
+- `DELETE /api/recordings/{id}/` - Delete recording (admin only)
 
-### Communications (`/api/communications/`)
+### Communications
 - `GET /api/communications/announcements/` - List announcements
-- `POST /api/communications/announcements/` - Create announcement (admin)
-- `GET /api/communications/notifications/` - User notifications
-- `POST /api/communications/notifications/{id}/mark_read/` - Mark as read
-- `GET /api/communications/notifications/unread_count/` - Unread count
-- `GET /api/communications/chat/?event_id={id}` - Get chat messages
+- `POST /api/communications/announcements/` - Create announcement (admin only)
+- `GET /api/communications/notifications/` - Get user notifications
 - `POST /api/communications/chat/` - Send chat message
 
----
+For complete API documentation, see [docs/API_REFERENCE.md](docs/API_REFERENCE.md)
 
-## 🎯 Features
+## 👤 Creating Superuser/Admin
 
-### For Users
-✅ User registration and authentication  
-✅ Browse and search webinars  
-✅ Register for upcoming webinars  
-✅ Join live webinars  
-✅ Access recorded sessions  
-✅ Receive notifications and announcements  
-✅ Participate in live chat during webinars  
-✅ Manage profile and settings  
+### Method 1: Command Line (Recommended)
 
-### For Admins
-✅ Create and manage webinars  
-✅ Upload and manage recordings  
-✅ Send announcements to all users  
-✅ View registration statistics  
-✅ Manage user roles and permissions  
-✅ Monitor webinar chat  
-✅ Mark webinars as completed  
-
----
-
-## 🛠️ Technology Stack
-
-### Backend
-- **Django 6.0** - Web framework
-- **Django REST Framework** - API framework
-- **Simple JWT** - JWT authentication
-- **PostgreSQL** - Production database
-- **SQLite** - Development database
-- **Whitenoise** - Static file serving
-- **Python Decouple** - Environment configuration
-
-### Frontend
-- **React 18** - UI library
-- **TypeScript** - Type safety
-- **Vite** - Build tool
-- **Tailwind CSS** - Styling
-- **React Router** - Navigation
-- **Axios** - HTTP client
-
----
-
-## 🔐 Authentication
-
-The system uses **JWT (JSON Web Tokens)** for authentication:
-
-1. User logs in with username/email and password
-2. Backend returns access token (1 hour expiry) and refresh token (7 days)
-3. Frontend stores tokens in localStorage
-4. Access token is sent with each API request
-5. When access token expires, use refresh token to get new access token
-
-### Token Usage
-
-```typescript
-// Login
-const response = await axios.post('/api/accounts/auth/login/', {
-  username: 'user@example.com',
-  password: 'password123'
-});
-const { access, refresh, user } = response.data;
-
-// Use token in requests
-axios.get('/api/webinars/', {
-  headers: { 'Authorization': `Bearer ${access}` }
-});
+```bash
+python manage.py createsuperuser
 ```
 
----
+You'll be prompted for:
+- Username
+- Email address
+- Password (enter twice)
 
-## 👥 User Roles
+### Method 2: Django Shell
 
-### Regular User
-- Can register for webinars
-- Can view recordings
-- Can participate in chat
-- Can view announcements
+```bash
+python manage.py shell
+```
 
-### Admin
-- All user permissions +
-- Can create/edit/delete webinars
-- Can upload recordings
-- Can send announcements
-- Can view all registrations
-- Can manage users
+Then run:
+```python
+from django.contrib.auth.models import User
+User.objects.create_superuser('admin', 'admin@example.com', 'securepassword')
+```
 
----
+### Method 3: PowerShell Script
 
-## 🗄️ Database Schema
-
-### Core Models
-
-**UserProfile** (accounts)
-- user: OneToOne → User
-- role: CharField (admin/user)
-- created_at, updated_at
-
-**Event** (webinars)
-- title, description
-- date, time, duration
-- price, thumbnail
-- live_stream_url
-- organizer: FK → User
-
-**Registration** (registrations)
-- user: FK → User
-- event: FK → Event
-- registered_on, attended
-
-**Recording** (recordings)
-- event: FK → Event
-- recording_link, title
-- uploaded_by: FK → User
-- is_public
-
-**Announcement** (communications)
-- sender: FK → User
-- title, content
-- created_at, updated_at
-
-**UserNotification** (communications)
-- user: FK → User
-- notification_type
-- content, is_read
-- announcement, event, recording
-
-**WebinarChatMessage** (communications)
-- event: FK → Event
-- user: FK → User
-- message, created_at
-
----
-
-## 📋 Development Guidelines
-
-### Code Style
-- Follow **PEP 8** for Python code
-- Use **ESLint** and **Prettier** for TypeScript/React
-- Write descriptive commit messages
-- Add docstrings to all functions/classes
-
-### Testing
+Run the provided script:
 ```powershell
-# Run Django tests
+.\setup-admin.ps1
+```
+
+### Admin Panel Access
+
+After creating a superuser, access the admin panel at:
+- **Local:** http://localhost:8000/admin/
+- **Production:** https://your-app.onrender.com/admin/
+
+## 🔑 API Authentication
+
+The system uses JWT (JSON Web Tokens) for authentication:
+
+1. **Register or Login** to receive tokens:
+   ```json
+   {
+     "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+     "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc..."
+   }
+   ```
+
+2. **Include access token** in subsequent requests:
+   ```
+   Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc...
+   ```
+
+3. **Token Expiration:**
+   - Access Token: 1 hour
+   - Refresh Token: 7 days
+
+4. **Refresh expired tokens:**
+   ```bash
+   POST /api/accounts/auth/token/refresh/
+   {
+     "refresh": "your-refresh-token"
+   }
+   ```
+
+## 🧪 Running Tests
+
+```bash
+# Run all tests
 python manage.py test
 
-# Run frontend tests
-cd frontend
-npm test
+# Run tests for specific app
+python manage.py test accounts
+python manage.py test webinars
+
+# Run with verbose output
+python manage.py test --verbosity=2
 ```
 
-### Creating New Apps
-```powershell
-# Create new Django app
-python manage.py startapp app_name
+## 🎯 Key Features
 
-# Add to INSTALLED_APPS in settings.py
-# Create models, views, serializers, urls
-# Register in main urls.py
-```
+### For Users
+- Browse upcoming webinars
+- Register/unregister for events
+- Access recordings of past webinars
+- Receive notifications and announcements
+- Participate in live chat during webinars
 
----
+### For Admins
+- Create and manage webinars
+- Upload and manage recordings
+- Send announcements to all users
+- View all registrations and analytics
+- User management through admin panel
 
-## 🚀 Deployment
+## ⚙️ Important Notes
 
-### Production Checklist
-- [ ] Set `DEBUG = False` in settings
-- [ ] Configure PostgreSQL database
-- [ ] Set up environment variables (`.env`)
-- [ ] Configure ALLOWED_HOSTS
-- [ ] Set up static file serving (Whitenoise)
-- [ ] Configure CORS properly
-- [ ] Run collectstatic
-- [ ] Run migrations
-- [ ] Create superuser
-- [ ] Set up SSL/HTTPS
-- [ ] Configure gunicorn/uwsgi
-- [ ] Set up frontend build process
+### CORS Configuration
+- In development, frontend (localhost:5173) can access backend (localhost:8000)
+- In production, update `CORS_ALLOWED_ORIGINS` in settings with your frontend domain
 
-See `docs/DEPLOYMENT_STEP1_COMPLETE.md` for detailed instructions.
+### Database
+- **PostgreSQL** is used for both development and production
+- Ensure PostgreSQL service is running before starting the Django server
+- Database credentials are configured in `.env` file
 
----
+### Static Files
+- Static files are served by WhiteNoise in production
+- Run `python manage.py collectstatic` before deployment (automated in render-build.sh)
 
-## 📚 Documentation
+### Media Files
+- User-uploaded files (avatars, recordings) are stored in `media/` directory
+- For production, consider using cloud storage (AWS S3, Cloudinary, etc.)
 
-- `REFACTORING_GUIDE.md` - Migration from old structure
-- `docs/API_REFERENCE.md` - Complete API documentation
-- `docs/ARCHITECTURE_DIAGRAMS.md` - System architecture
-- `docs/FRONTEND_SETUP.md` - Frontend configuration
-- `docs/TESTING_GUIDE.md` - Testing guidelines
+### Security
+- **Change SECRET_KEY** in production (never use default)
+- Set **DEBUG=False** in production
+- Use **strong passwords** for superuser accounts
+- Keep dependencies updated regularly
 
----
+### API Base URL
+- **Local Development:** `http://localhost:8000/api`
+- **Production:** Update `VITE_API_BASE_URL` in frontend environment variables
 
-## 🤝 Contributing
+## 📞 Support & Documentation
 
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Open Pull Request
+For additional documentation, see the `docs/` directory:
+- [API Reference](docs/API_REFERENCE.md) - Complete API documentation
+- [Testing Guide](docs/TESTING_GUIDE.md) - How to test the application
+- [Architecture Diagrams](docs/ARCHITECTURE_DIAGRAMS.md) - System architecture
 
----
+## 📄 License
 
-## 📝 License
-
-This project is licensed under the MIT License.
-
----
-
-## 🆘 Support & Issues
-
-For bugs, feature requests, or questions:
-1. Check existing documentation
-2. Search existing issues
-3. Create new issue with detailed description
+This project is developed as part of PFSD (Programming for Software Development) coursework.
 
 ---
 
-## 🎉 Acknowledgments
-
-Built with ❤️ using Django and React.
-
-**Version:** 2.0.0  
-**Last Updated:** February 19, 2026
+**Last Updated:** February 2026  
+**Version:** 1.0.0
