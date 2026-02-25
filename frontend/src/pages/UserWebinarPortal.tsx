@@ -1498,7 +1498,7 @@ const UserWebinarPortal = () => {
 
     const handleLogout = () => {
       authService.logout();
-      navigate("/login");
+      navigate("/auth?mode=login");
     };
 
     if (isLoading) {
