@@ -2,15 +2,30 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../services/api';
+import JitsiMeetComponent from '../components/JitsiMeetComponent';
 import { 
   LayoutDashboard, CalendarPlus, Users, Video, 
   LogOut, Search, Bell, Plus, Upload, 
   MoreVertical, Trash, Edit, CheckCircle, 
-  FileText, Calendar, Clock, Save, UserCircle, MessageSquare
+  FileText, Calendar, Clock, Save, UserCircle, MessageSquare, X,
+  TrendingUp, Activity, BarChart3, Mail
 } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend
+} from 'recharts';
 
 // --- Types ---
-type AdminView = 'dashboard' | 'schedule' | 'registrations' | 'recordings' | 'users' | 'announcements';
+type AdminView = 'dashboard' | 'analytics' | 'schedule' | 'registrations' | 'recordings' | 'users' | 'announcements';
 
 type ToastType = 'success' | 'error' | 'info';
 
@@ -74,6 +89,20 @@ interface AdminUser {
   username: string;
   email: string;
   role?: string;
+}
+
+interface Analytics {
+  total_webinars: number;
+  total_live_sessions: number;
+  total_participants: number;
+  average_session_duration_minutes: number | null;
+  sessions_per_webinar: {
+    webinar_id: number;
+    title: string;
+    participant_count: number;
+  }[];
+  active_sessions: number;
+  completed_sessions: number;
 }
 
 // --- Sub-Components ---
@@ -344,12 +373,25 @@ const AdminDashboard: React.FC = () => {
     live_stream_url: '',
   });
 
+  // Live session state
+  const [liveSessionLoading, setLiveSessionLoading] = useState<boolean>(false);
+  const [liveSessionError, setLiveSessionError] = useState<string | null>(null);
+  const [liveRoomName, setLiveRoomName] = useState<string | null>(null);
+  const [liveWebinarId, setLiveWebinarId] = useState<number | null>(null);
+  const [liveParticipantCount, setLiveParticipantCount] = useState<number | null>(null);
+
+  // Analytics state
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState<boolean>(false);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!isAdmin()) {
       navigate('/auth');
       return;
     }
     fetchDashboardData();
+    fetchAnalytics();
   }, [isAdmin, navigate]);
 
   const addToast = (type: ToastType, message: string) => {
@@ -373,11 +415,32 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
+  const fetchAnalytics = async (): Promise<void> => {
+    try {
+      setAnalyticsLoading(true);
+      setAnalyticsError(null);
+      const response = await apiClient.get('/live/analytics/');
+      setAnalytics(response.data);
+    } catch (err: any) {
+      console.error('Failed to fetch analytics:', err);
+      setAnalyticsError(err?.response?.data?.error || 'Failed to load analytics');
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
   const fetchDashboardData = async (): Promise<void> => {
     try {
       setLoading(true);
+      
+      // Debug: Log the current user info
+      console.log('=== AdminDashboard fetchDashboardData ===');
+      console.log('Current user:', user);
+      console.log('Current user ID:', user?.id);
+      console.log('Is authenticated:', !!user);
+      
       const [webinarsRes, recordingsRes, registrationsRes, usersRes, announcementsRes] = await Promise.all([
-        apiClient.get('/webinars/'),
+        apiClient.get('/webinars/?my_only=true'),
         apiClient.get('/recordings/'),
         apiClient.get('/registrations/'),
         apiClient.get('/accounts/users/'),
@@ -389,6 +452,17 @@ const AdminDashboard: React.FC = () => {
       const registrationsData = registrationsRes.data.results || registrationsRes.data;
       const usersData = usersRes.data.results || usersRes.data;
       const announcementsData = announcementsRes.data.results || announcementsRes.data;
+      
+      // Debug: Log fetched data
+      console.log('Webinars API Response:', webinarsRes.data);
+      console.log('Parsed webinars data:', webinarsData);
+      console.log(`Total webinars fetched: ${webinarsData?.length || 0}`);
+      if (webinarsData && webinarsData.length > 0) {
+        console.log('First webinar:', webinarsData[0]);
+        webinarsData.forEach((w: any, idx: number) => {
+          console.log(`Webinar ${idx}:`, { id: w.id, title: w.title, organizer: w.organizer, organizer_name: w.organizer_name });
+        });
+      }
       
       setWebinars(webinarsData);
       setRecordings(recordingsData);
@@ -534,11 +608,17 @@ const AdminDashboard: React.FC = () => {
 
   const fetchNotifications = async () => {
     try {
-      const { data } = await apiClient.get('/communications/notifications/recent/');
-      setNotifications(data || []);
+      const { data } = await apiClient.get('/communications/notifications/', {
+        params: { page_size: 5 }
+      });
+      const notificationsArray = data?.results || data || [];
+      setNotifications(notificationsArray.slice(0, 5));
       
-      const countRes = await apiClient.get('/communications/notifications/unread_count/');
-      setUnreadCount(countRes.data.unread_count || 0);
+      const unreadRes = await apiClient.get('/communications/notifications/', {
+        params: { unread: true, page_size: 1 }
+      });
+      const unreadCountValue = unreadRes?.data?.count ?? unreadRes?.data?.results?.length ?? unreadRes?.data?.length ?? 0;
+      setUnreadCount(unreadCountValue);
     } catch (err: any) {
       console.error('Failed to fetch notifications:', err);
     }
@@ -546,7 +626,7 @@ const AdminDashboard: React.FC = () => {
 
   const markAsRead = async (notificationId: number) => {
     try {
-      await apiClient.post(`/communications/notifications/${notificationId}/mark_read/`);
+      await apiClient.post(`/communications/notifications/${notificationId}/mark-read/`);
       setNotifications(notifications.map(n => 
         n.id === notificationId ? { ...n, is_read: true } : n
       ));
@@ -558,11 +638,33 @@ const AdminDashboard: React.FC = () => {
 
   const markAllAsRead = async () => {
     try {
-      await apiClient.post('/communications/notifications/mark_all_read/');
+      await apiClient.post('/communications/notifications/mark-all-read/');
       setNotifications(notifications.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);
     } catch (err) {
       console.error('Failed to mark all as read:', err);
+    }
+  };
+
+  const handleNotificationClick = async (notif: any) => {
+    // Mark as read if unread
+    if (!notif.is_read) {
+      await markAsRead(notif.id);
+    }
+    
+    // Close notification dropdown
+    setShowNotifications(false);
+    
+    // Navigate to webinar details if related webinar exists
+    if (notif.webinar_id || notif.related_webinar) {
+      const webinarId = notif.webinar_id || notif.related_webinar;
+      // Find the webinar in the list
+      const webinar = webinars.find((w: any) => w.id === webinarId);
+      if (webinar) {
+        // Switch to dashboard view if not already there
+        setView('dashboard');
+        // Could add additional logic here to highlight or scroll to the webinar
+      }
     }
   };
 
@@ -628,6 +730,69 @@ const AdminDashboard: React.FC = () => {
   const handleLogout = () => {
     logout();
     navigate('/auth');
+  };
+
+  const handleStartLiveSession = async (webinarId: number, webinarTitle: string) => {
+    setLiveSessionLoading(true);
+    setLiveSessionError(null);
+    try {
+      console.log(`Starting live session for webinar ${webinarId}: ${webinarTitle}`);
+      
+      // Call backend endpoint to start live session
+      const response = await apiClient.post(`/live/start/${webinarId}/`);
+      
+      // Get room name from backend response
+      const roomName = response.data.room_name;
+      console.log(`Live session started - Room name: ${roomName}`);
+      if (typeof response.data.participant_count === 'number') {
+        console.log(`Live session participants: ${response.data.participant_count}`);
+        setLiveParticipantCount(response.data.participant_count);
+      } else {
+        setLiveParticipantCount(0);
+      }
+      
+      // Set room name from backend response
+      setLiveRoomName(roomName);
+      setLiveWebinarId(webinarId);
+      addToast('success', `Live session started: ${webinarTitle}`);
+      
+    } catch (err: any) {
+      console.error('Error starting live session:', err);
+      const errorMessage = err?.response?.data?.detail || err?.response?.data?.error || 'Failed to start live session';
+      setLiveSessionError(errorMessage);
+      addToast('error', errorMessage);
+    } finally {
+      setLiveSessionLoading(false);
+    }
+  };
+
+  const handleEndLiveSession = async (webinarId?: number | null) => {
+    const sessionWebinarId = webinarId ?? liveWebinarId;
+    if (!sessionWebinarId) {
+      setLiveRoomName(null);
+      setLiveParticipantCount(null);
+      setLiveSessionError(null);
+      return;
+    }
+
+    setLiveSessionLoading(true);
+    setLiveSessionError(null);
+    try {
+      const response = await apiClient.post(`/live/end/${sessionWebinarId}/`);
+      console.log('Live session ended:', response.data?.end_time);
+      setLiveRoomName(null);
+      setLiveWebinarId(null);
+      setLiveParticipantCount(null);
+      addToast('success', 'Live session ended successfully');
+      fetchDashboardData();
+    } catch (err: any) {
+      console.error('Error ending live session:', err);
+      const errorMessage = err?.response?.data?.detail || err?.response?.data?.error || 'Failed to end live session';
+      setLiveSessionError(errorMessage);
+      addToast('error', errorMessage);
+    } finally {
+      setLiveSessionLoading(false);
+    }
   };
 
   // Calculate filtered webinars before useCallback definitions
@@ -708,7 +873,7 @@ const AdminDashboard: React.FC = () => {
                       .map((webinar) => (
                         <div
                           key={webinar.id}
-                          className="flex-shrink-0 w-72 bg-gray-50 p-4 rounded-lg border border-gray-200 hover:shadow-md transition"
+                          className="flex-shrink-0 w-72 bg-gray-50 p-4 rounded-lg border border-gray-200 hover:shadow-md transition flex flex-col"
                         >
                           <div className="flex justify-between items-start mb-3">
                             <div className="flex-1">
@@ -729,7 +894,7 @@ const AdminDashboard: React.FC = () => {
                               </button>
                             </div>
                           </div>
-                          <div className="space-y-2 text-xs text-gray-600">
+                          <div className="space-y-2 text-xs text-gray-600 flex-grow">
                             <div className="flex items-center">
                               <span className="font-semibold mr-2">Date:</span>
                               <span>{new Date(webinar.start_time).toLocaleDateString()}</span>
@@ -742,6 +907,27 @@ const AdminDashboard: React.FC = () => {
                               <span className="font-semibold mr-2">Registrations:</span>
                               <span className="bg-pink-100 text-pink-700 px-2 py-1 rounded text-xs font-bold">{webinar.attendees_count}</span>
                             </div>
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            {liveRoomName && liveWebinarId === webinar.id ? (
+                              <button
+                                onClick={() => handleEndLiveSession(webinar.id)}
+                                disabled={liveSessionLoading}
+                                className="w-full bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-900 hover:to-black text-white font-bold py-2 px-3 rounded-lg text-xs transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                              >
+                                <Video size={14} />
+                                {liveSessionLoading ? 'Ending...' : 'End Live Session'}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleStartLiveSession(webinar.id, webinar.title)}
+                                disabled={liveSessionLoading}
+                                className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-2 px-3 rounded-lg text-xs transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                              >
+                                <Video size={14} />
+                                {liveSessionLoading ? 'Starting...' : 'Go Live'}
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -788,6 +974,163 @@ const AdminDashboard: React.FC = () => {
                  </button>
               </div>
             </div>
+          </div>
+        );
+      case 'analytics':
+        return (
+          <div className="space-y-8 animate-in fade-in duration-500">
+            <div className="flex justify-between items-end">
+              <div>
+                 <h1 className="text-3xl font-extrabold text-slate-900">Live Session Analytics</h1>
+                 <p className="text-gray-500 mt-1">Comprehensive insights into your live webinar sessions and participant engagement.</p>
+              </div>
+            </div>
+
+            {analyticsLoading ? (
+              <div className="flex justify-center items-center py-20">
+                <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-pink-500"></div>
+              </div>
+            ) : analyticsError ? (
+              <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl">
+                <p className="font-bold">Error Loading Analytics</p>
+                <p className="text-sm mt-1">{analyticsError}</p>
+                <button 
+                  onClick={fetchAnalytics} 
+                  className="mt-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : analytics ? (
+              <>
+                {/* KPI Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <StatCard 
+                    label="Total Webinars" 
+                    value={analytics.total_webinars} 
+                    icon={Video} 
+                    color="bg-purple-100" 
+                    trend="" 
+                  />
+                  <StatCard 
+                    label="Total Live Sessions" 
+                    value={analytics.total_live_sessions} 
+                    icon={Activity} 
+                    color="bg-pink-100" 
+                    trend="" 
+                  />
+                  <StatCard 
+                    label="Total Participants" 
+                    value={analytics.total_participants} 
+                    icon={Users} 
+                    color="bg-blue-100" 
+                    trend="" 
+                  />
+                  <StatCard 
+                    label="Avg Session Duration" 
+                    value={analytics.average_session_duration_minutes !== null 
+                      ? `${analytics.average_session_duration_minutes.toFixed(1)} min` 
+                      : 'N/A'
+                    } 
+                    icon={Clock} 
+                    color="bg-green-100" 
+                    trend="" 
+                  />
+                </div>
+
+                {/* Charts Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Bar Chart - Sessions per Webinar */}
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <h3 className="font-bold text-lg text-slate-900 mb-6">Participants per Webinar</h3>
+                    {analytics.sessions_per_webinar && analytics.sessions_per_webinar.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={analytics.sessions_per_webinar}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                          <XAxis 
+                            dataKey="title" 
+                            tick={{ fill: '#64748b', fontSize: 12 }} 
+                            angle={-15}
+                            textAnchor="end"
+                            height={80}
+                          />
+                          <YAxis tick={{ fill: '#64748b', fontSize: 12 }} />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: '#fff', 
+                              border: '1px solid #e5e7eb', 
+                              borderRadius: '8px',
+                              boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                            }}
+                          />
+                          <Bar dataKey="participant_count" fill="#ec4899" radius={[8, 8, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-[300px] text-gray-400">
+                        <div className="text-center">
+                          <TrendingUp size={48} className="mx-auto mb-3 opacity-30" />
+                          <p>No session data available</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pie Chart - Active vs Completed Sessions */}
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <h3 className="font-bold text-lg text-slate-900 mb-6">Session Status Distribution</h3>
+                    {analytics.active_sessions > 0 || analytics.completed_sessions > 0 ? (
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={[
+                              { name: 'Active Sessions', value: analytics.active_sessions },
+                              { name: 'Completed Sessions', value: analytics.completed_sessions }
+                            ]}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={(entry: any) => 
+                              `${entry.name}: ${entry.value} (${(entry.percent * 100).toFixed(0)}%)`
+                            }
+                            outerRadius={90}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            <Cell fill="#10b981" />
+                            <Cell fill="#6366f1" />
+                          </Pie>
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: '#fff', 
+                              border: '1px solid #e5e7eb', 
+                              borderRadius: '8px',
+                              boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                            }}
+                          />
+                          <Legend 
+                            verticalAlign="bottom" 
+                            height={36}
+                            iconType="circle"
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-[300px] text-gray-400">
+                        <div className="text-center">
+                          <Activity size={48} className="mx-auto mb-3 opacity-30" />
+                          <p>No session status data available</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="bg-gray-50 border border-gray-200 text-gray-600 p-6 rounded-xl text-center">
+                <p>No analytics data available. Start some live sessions to see insights!</p>
+              </div>
+            )}
           </div>
         );
       case 'registrations':
@@ -1203,6 +1546,7 @@ const AdminDashboard: React.FC = () => {
          <nav className="relative z-10 flex-1 py-4">
             <div className="px-6 mb-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Main Menu</div>
             <SidebarItem icon={LayoutDashboard} label="Dashboard" active={view === 'dashboard'} onClick={() => setView('dashboard')} />
+            <SidebarItem icon={BarChart3} label="Analytics" active={view === 'analytics'} onClick={() => setView('analytics')} />
             <SidebarItem icon={CalendarPlus} label="Schedule Event" active={view === 'schedule'} onClick={() => setView('schedule')} />
             <SidebarItem icon={Users} label="Registrations" active={view === 'registrations'} onClick={() => setView('registrations')} />
             <SidebarItem icon={Video} label="Recordings" active={view === 'recordings'} onClick={() => setView('recordings')} />
@@ -1236,6 +1580,16 @@ const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="flex items-center space-x-6">
+               {/* Inbox Icon */}
+               <button 
+                 onClick={() => navigate('/inbox')}
+                 className="cursor-pointer text-gray-500 hover:text-pink-500 transition"
+                 title="Messages"
+               >
+                 <Mail size={20} />
+               </button>
+
+               {/* Notifications */}
                <div className="relative">
                   <button 
                     onClick={() => setShowNotifications(!showNotifications)}
@@ -1275,7 +1629,7 @@ const AdminDashboard: React.FC = () => {
                             {notifications.map((notif) => (
                               <div
                                 key={notif.id}
-                                onClick={() => !notif.is_read && markAsRead(notif.id)}
+                                onClick={() => handleNotificationClick(notif)}
                                 className={`p-4 hover:bg-gray-50 transition cursor-pointer ${
                                   !notif.is_read ? 'bg-pink-50' : ''
                                 }`}
@@ -1289,8 +1643,8 @@ const AdminDashboard: React.FC = () => {
                                 <p className="text-xs text-gray-600 mb-2">{notif.content}</p>
                                 <div className="flex justify-between items-center text-[10px] text-gray-400">
                                   <span>
-                                    {notif.sender_username && `By ${notif.sender_username}`}
-                                    {notif.event_title && notif.event_title}
+                                    {notif.notification_type_display || notif.notification_type}
+                                    {notif.webinar_title ? ` • ${notif.webinar_title}` : ''}
                                   </span>
                                   <span>{new Date(notif.created_at).toLocaleDateString()}</span>
                                 </div>
@@ -1338,6 +1692,36 @@ const AdminDashboard: React.FC = () => {
           )}
          </main>
       </div>
+
+      {/* Live Session Modal Overlay */}
+      {liveRoomName && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex flex-col z-[60] animate-in fade-in duration-200">
+          {/* Header with Close Button */}
+          <div className="bg-slate-900 border-b border-slate-700 px-6 py-4 flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-bold text-white">Live Session</h2>
+              <p className="text-sm text-gray-400 mt-1">Room: {liveRoomName}</p>
+              {typeof liveParticipantCount === 'number' && (
+                <p className="text-xs text-gray-300 mt-1">
+                  Participants: {liveParticipantCount}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => handleEndLiveSession()}
+              className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full transition shadow-lg flex items-center justify-center"
+              title="End live session"
+            >
+              <X size={24} />
+            </button>
+          </div>
+          
+          {/* Jitsi Component Container */}
+          <div className="flex-1 overflow-hidden bg-black">
+            <JitsiMeetComponent roomName={liveRoomName} onClose={() => handleEndLiveSession()} />
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Modal Overlay */}
       {confirmModal.isOpen && (

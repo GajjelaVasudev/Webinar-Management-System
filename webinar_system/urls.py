@@ -16,6 +16,7 @@ api_patterns = [
     path('registrations/', include('registrations.urls')),
     path('recordings/', include('recordings.urls')),
     path('communications/', include('communications.urls')),
+    path('live/', include('live_sessions.urls')),
 ]
 
 urlpatterns = [

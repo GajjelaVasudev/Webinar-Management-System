@@ -4,6 +4,7 @@ import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
 import UserWebinarPortal from './pages/UserWebinarPortal';
 import AdminDashboard from './pages/AdminDashboard';
+import InboxPage from './pages/InboxPage';
 import RoleProtectedRoute from './routes/RoleProtectedRoute';
 
 // Component to redirect authenticated users from auth page
@@ -23,6 +24,7 @@ function AppRoutes() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/auth" element={<AuthRedirect />} />
       <Route path="/user-portal" element={<UserWebinarPortal />} />
+      <Route path="/inbox" element={<InboxPage />} />
       <Route path="/admin" element={
         <RoleProtectedRoute allowedRoles={['admin']}>
           <AdminDashboard />

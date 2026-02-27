@@ -17,6 +17,12 @@ class EventViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         
+        # DEBUG: Log the request user and their properties
+        print(f"DEBUG: EventViewSet.get_queryset() called")
+        print(f"DEBUG: User: {self.request.user}")
+        print(f"DEBUG: User authenticated: {self.request.user.is_authenticated}")
+        print(f"DEBUG: User role: {getattr(self.request.user, 'role', 'N/A')}")
+        
         # Filter by status
         status_filter = self.request.query_params.get('status')
         if status_filter:
@@ -31,6 +37,13 @@ class EventViewSet(viewsets.ModelViewSet):
         if organizer_id:
             queryset = queryset.filter(organizer_id=organizer_id)
         
+        # If request has 'my_only' param and user is authenticated, show only their webinars
+        my_only = self.request.query_params.get('my_only')
+        if my_only and self.request.user.is_authenticated:
+            print(f"DEBUG: Filtering to user {self.request.user.id}'s webinars only")
+            queryset = queryset.filter(organizer=self.request.user)
+        
+        print(f"DEBUG: Returning {queryset.count()} webinars")
         return queryset
 
     def get_serializer_class(self):

@@ -20,12 +20,17 @@ import {
   Bell,
   Film,
   ChevronLeft,
+  Zap,
+  AlertCircle,
+  Mail,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import apiClient from "../services/api";
 import authService from "../services/auth";
 import Logo from "../components/Logo";
 import WeekViewCalendar from "../components/WeekViewCalendar";
+import JitsiMeetComponent from "../components/JitsiMeetComponent";
+import liveSessionService from "../services/liveSessionService";
 import { CalendarEvent } from "../utils/calendarUtils";
 
 type ViewState =
@@ -55,6 +60,7 @@ interface Webinar {
   live_stream_url?: string;
   start_time?: string; // ISO string
   end_time?: string; // ISO string
+  organizer_id?: number; // Host/organizer ID
 }
 
 interface EventApi {
@@ -67,6 +73,7 @@ interface EventApi {
   start_time: string; // ISO
   end_time: string; // ISO
   organizer_name?: string;
+  organizer?: number; // Host/organizer ID
   speaker_name?: string;
   speaker_role?: string;
   price?: string | number;
@@ -197,6 +204,7 @@ const mapEvent = (ev: EventApi): Webinar => {
     live_stream_url: ev.live_stream_url,
     start_time: startTime,
     end_time: endTime,
+    organizer_id: ev.organizer,
   };
 };
 
@@ -212,6 +220,7 @@ const Header = ({
   setShowNotifications,
   onMarkAsRead,
   onMarkAllAsRead,
+  onNotificationClick,
 }: {
   setView: (v: ViewState) => void;
   currentView: ViewState;
@@ -222,6 +231,7 @@ const Header = ({
   setShowNotifications: (show: boolean) => void;
   onMarkAsRead: (id: number) => void;
   onMarkAllAsRead: () => void;
+  onNotificationClick: (notif: any) => void;
 }) => (
   <nav className="bg-[#1e1b4b] text-white px-8 py-5 sticky top-0 z-50 shadow-xl border-b border-white/10">
     <div className="max-w-7xl mx-auto flex justify-between items-center">
@@ -253,6 +263,16 @@ const Header = ({
       </div>
 
       <div className="flex items-center space-x-6">
+        {/* Inbox Icon */}
+        <button 
+          onClick={() => window.location.href = '/inbox'}
+          className="relative text-gray-300 hover:text-white transition"
+          title="Messages"
+        >
+          <Mail size={20} />
+        </button>
+
+        {/* Notifications */}
         <div className="relative">
           <button 
             onClick={() => setShowNotifications(!showNotifications)}
@@ -292,7 +312,7 @@ const Header = ({
                     {notifications.map((notif) => (
                       <div
                         key={notif.id}
-                        onClick={() => !notif.is_read && onMarkAsRead(notif.id)}
+                        onClick={() => onNotificationClick(notif)}
                         className={`p-4 hover:bg-gray-50 transition cursor-pointer ${
                           !notif.is_read ? 'bg-pink-50' : ''
                         }`}
@@ -306,8 +326,8 @@ const Header = ({
                         <p className="text-xs text-gray-600 mb-2">{notif.content}</p>
                         <div className="flex justify-between items-center text-[10px] text-gray-400">
                           <span>
-                            {notif.sender_username && `By ${notif.sender_username}`}
-                            {notif.event_title && notif.event_title}
+                            {notif.notification_type_display || notif.notification_type}
+                            {notif.webinar_title ? ` • ${notif.webinar_title}` : ''}
                           </span>
                           <span>{new Date(notif.created_at).toLocaleDateString()}</span>
                         </div>
@@ -465,7 +485,13 @@ const UserWebinarPortal = () => {
   const [showNotifications, setShowNotifications] = useState(false);
 
   const [userName, setUserName] = useState<string | undefined>(undefined);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+
+  // Live session state
+  const [liveRoomName, setLiveRoomName] = useState<string | null>(null);
+  const [isLoadingLiveSession, setIsLoadingLiveSession] = useState(false);
+  const [liveSessionError, setLiveSessionError] = useState<string | null>(null);
 
   // --- Auth check ---
   useEffect(() => {
@@ -479,6 +505,7 @@ const UserWebinarPortal = () => {
       try {
         const { data } = await apiClient.get("/accounts/users/me/");
         setUserName(data?.name || data?.username || "User");
+        setCurrentUserId(data?.id || null);
       } catch (err: any) {
         if (err?.response?.status === 401) {
           navigate("/auth");
@@ -616,11 +643,17 @@ const UserWebinarPortal = () => {
 
   const fetchNotifications = async () => {
     try {
-      const { data } = await apiClient.get("/communications/notifications/recent/");
-      setNotifications(data || []);
+      const { data } = await apiClient.get("/communications/notifications/", {
+        params: { page_size: 5 }
+      });
+      const notificationsArray = data?.results || data || [];
+      setNotifications(notificationsArray.slice(0, 5));
       
-      const countRes = await apiClient.get("/communications/notifications/unread_count/");
-      setUnreadCount(countRes.data.unread_count || 0);
+      const unreadRes = await apiClient.get("/communications/notifications/", {
+        params: { unread: true, page_size: 1 }
+      });
+      const unreadCountValue = unreadRes?.data?.count ?? unreadRes?.data?.results?.length ?? unreadRes?.data?.length ?? 0;
+      setUnreadCount(unreadCountValue);
     } catch (err: any) {
       console.error('Failed to fetch notifications:', err);
     }
@@ -628,7 +661,7 @@ const UserWebinarPortal = () => {
 
   const markAsRead = async (notificationId: number) => {
     try {
-      await apiClient.post(`/communications/notifications/${notificationId}/mark_read/`);
+      await apiClient.post(`/communications/notifications/${notificationId}/mark-read/`);
       setNotifications(notifications.map(n => 
         n.id === notificationId ? { ...n, is_read: true } : n
       ));
@@ -640,7 +673,7 @@ const UserWebinarPortal = () => {
 
   const markAllAsRead = async () => {
     try {
-      await apiClient.post("/communications/notifications/mark_all_read/");
+      await apiClient.post("/communications/notifications/mark-all-read/");
       setNotifications(notifications.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);
     } catch (err) {
@@ -648,9 +681,86 @@ const UserWebinarPortal = () => {
     }
   };
 
+  const handleNotificationClick = async (notif: any) => {
+    // Mark as read if unread
+    if (!notif.is_read) {
+      await markAsRead(notif.id);
+    }
+    
+    // Close notification dropdown
+    setShowNotifications(false);
+    
+    // Navigate to related webinar if exists
+    if (notif.webinar_id || notif.related_webinar) {
+      const webinarId = notif.webinar_id || notif.related_webinar;
+      // Find the webinar and open its modal
+      const webinar = webinars.find((w: any) => w.id === webinarId);
+      if (webinar) {
+        setSelectedWebinar(webinar);
+      }
+    }
+  };
+
+  // --- Live Session Handlers ---
+  const handleStartLiveSession = async () => {
+    if (!selectedWebinar) return;
+    
+    setIsLoadingLiveSession(true);
+    setLiveSessionError(null);
+    
+    try {
+      const data = await liveSessionService.startLiveSession(selectedWebinar.id);
+      setLiveRoomName(data.room_name);
+      setView("live");
+    } catch (err: any) {
+      if (err?.response?.status === 403) {
+        setLiveSessionError("Only the webinar host can start the live session");
+      } else if (err?.response?.status === 404) {
+        setLiveSessionError("Webinar not found");
+      } else {
+        setLiveSessionError("Failed to start live session. Please try again.");
+      }
+      console.error("Error starting live session:", err);
+    } finally {
+      setIsLoadingLiveSession(false);
+    }
+  };
+
+  const handleJoinLiveSession = async () => {
+    if (!selectedWebinar) return;
+    
+    setIsLoadingLiveSession(true);
+    setLiveSessionError(null);
+    
+    try {
+      const data = await liveSessionService.joinLiveSession(selectedWebinar.id);
+      setLiveRoomName(data.room_name);
+      setView("live");
+    } catch (err: any) {
+      if (err?.response?.status === 403) {
+        setLiveSessionError("You must be registered to join this live session");
+      } else if (err?.response?.status === 404) {
+        setLiveSessionError("Live session not found");
+      } else {
+        setLiveSessionError("Live session is not currently active");
+      }
+      console.error("Error joining live session:", err);
+    } finally {
+      setIsLoadingLiveSession(false);
+    }
+  };
+
   useEffect(() => {
     fetchRecordings();
   }, []);
+
+  // Reset live session state when leaving live view
+  useEffect(() => {
+    if (view !== "live") {
+      setLiveRoomName(null);
+      setLiveSessionError(null);
+    }
+  }, [view]);
 
   const liveRegistrations = useMemo(
     () => events.filter((e) => e.category === "Live" && e.isRegistered),
@@ -917,14 +1027,56 @@ const UserWebinarPortal = () => {
               </div>
 
               {/* Status-based action buttons */}
-              {selectedWebinar.status === "live" && selectedWebinar.isRegistered ? (
-                <button
-                  onClick={() => setView("live")}
-                  className="w-full bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white font-bold py-4 rounded-xl shadow-[0_10px_20px_rgba(239,68,68,0.3)] transition transform hover:-translate-y-1 flex items-center justify-center gap-2 animate-pulse"
-                >
-                  <Play size={20} fill="white" />
-                  Join Live Session
-                </button>
+              {selectedWebinar.status === "live" ? (
+                // Live session actions
+                <>
+                  {selectedWebinar.organizer_id === currentUserId ? (
+                    // Host button
+                    <button
+                      onClick={handleStartLiveSession}
+                      disabled={isLoadingLiveSession}
+                      className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-4 rounded-xl shadow-[0_10px_20px_rgba(239,68,68,0.3)] transition transform hover:-translate-y-1 disabled:opacity-60 flex items-center justify-center gap-2"
+                    >
+                      <Zap size={20} />
+                      {isLoadingLiveSession ? "Starting..." : "Go Live"}
+                    </button>
+                  ) : selectedWebinar.isRegistered ? (
+                    // Join button for registered students
+                    <button
+                      onClick={handleJoinLiveSession}
+                      disabled={isLoadingLiveSession}
+                      className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-4 rounded-xl shadow-[0_10px_20px_rgba(34,197,94,0.3)] transition transform hover:-translate-y-1 disabled:opacity-60 flex items-center justify-center gap-2 animate-pulse"
+                    >
+                      <Play size={20} fill="white" />
+                      {isLoadingLiveSession ? "Joining..." : "Join Live Session"}
+                    </button>
+                  ) : (
+                    // Not registered - show error
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+                      <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <AlertCircle size={24} />
+                      </div>
+                      <div className="font-bold text-amber-800">
+                        Live Now!
+                      </div>
+                      <div className="text-xs text-amber-600 mt-1">
+                        Register to join the live session
+                      </div>
+                      <button
+                        onClick={registerForEvent}
+                        disabled={isRegistering}
+                        className="mt-3 w-full bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-bold transition text-sm"
+                      >
+                        {isRegistering ? "Registering..." : "Register Now"}
+                      </button>
+                    </div>
+                  )}
+                  {liveSessionError && (
+                    <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 text-center">
+                      {liveSessionError}
+                    </div>
+                  )}
+                </>
               ) : selectedWebinar.status === "completed" ? (
                 <div className="space-y-3">
                   <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
@@ -1246,21 +1398,19 @@ const UserWebinarPortal = () => {
           </div>
 
           <div className="flex-1 relative">
-            {selectedWebinar.live_stream_url ? (
-              <iframe
-                src={selectedWebinar.live_stream_url}
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                title="Live Stream"
+            {liveRoomName ? (
+              <JitsiMeetComponent
+                roomName={liveRoomName}
+                displayName={userName || "User"}
+                onClose={() => setView("my-webinars")}
               />
             ) : (
               <div className="flex items-center justify-center h-full">
                 <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=1200')] bg-cover bg-center opacity-40"></div>
                 <div className="relative z-10 text-center text-white">
-                  <Video size={64} className="mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-semibold">Stream will start soon...</p>
-                  <p className="text-sm text-gray-300 mt-2">Please wait while the organizer sets up the stream</p>
+                  <div className="w-12 h-12 rounded-full border-4 border-white border-t-pink-500 animate-spin mx-auto mb-4"></div>
+                  <p className="text-lg font-semibold">Connecting to live session...</p>
+                  <p className="text-sm text-gray-300 mt-2">Please wait</p>
                 </div>
               </div>
             )}

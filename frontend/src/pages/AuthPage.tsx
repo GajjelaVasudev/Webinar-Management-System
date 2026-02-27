@@ -229,14 +229,14 @@ const AuthPage = () => {
               {isLogin
                 ? "Enter your details to access your account"
                 : "Get started with your free account today"}
-                        {isLogin && (
-                          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
-                            <p className="text-blue-800 font-semibold mb-1">Test Credentials:</p>
-                            <p className="text-blue-700">Username: <span className="font-mono font-bold">Admin</span></p>
-                            <p className="text-blue-700">Password: <span className="font-mono font-bold">admin123</span></p>
-                          </div>
-                        )}
             </p>
+            {isLogin && (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                <p className="text-blue-800 font-semibold mb-1">Test Credentials:</p>
+                <p className="text-blue-700">Username: <span className="font-mono font-bold">Admin</span></p>
+                <p className="text-blue-700">Password: <span className="font-mono font-bold">admin123</span></p>
+              </div>
+            )}
             {isLogin && (
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <button

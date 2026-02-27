@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'registrations',
     'recordings',
     'communications',
+    'live_sessions',
 ]
 
 MIDDLEWARE = [
@@ -157,13 +158,22 @@ REST_FRAMEWORK = {
 }
 
 # CORS Configuration for React Frontend
-CORS_ALLOWED_ORIGINS = config(
-    'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://localhost:5173,https://webinar-management-system-odoq.onrender.com',
-    cast=lambda v: [s.strip() for s in v.split(',')]
-)
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5173',
+    'https://webinar-management-system-odoq.onrender.com',
+]
 
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'content-type',
+    'authorization',
+    'accept',
+    'origin',
+    'x-csrftoken',
+]
 
 # REST Framework Configuration for trailing slashes
 REST_FRAMEWORK['APPEND_SLASH'] = True
