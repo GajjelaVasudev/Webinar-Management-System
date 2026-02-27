@@ -165,6 +165,7 @@ _cors_origins = [
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5173',
     'https://webinar-management-system-omega.vercel.app',
+    'https://altrix06.vercel.app',
     'https://webinar-management-system-odoq.onrender.com',
 ]
 
