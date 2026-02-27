@@ -158,13 +158,28 @@ REST_FRAMEWORK = {
 }
 
 # CORS Configuration for React Frontend
-CORS_ALLOWED_ORIGINS = [
+# Build the allowed origins list
+_cors_origins = [
     'http://localhost:3000',
     'http://localhost:5173',
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5173',
+    'https://webinar-management-system-omega.vercel.app',
     'https://webinar-management-system-odoq.onrender.com',
 ]
+
+# Add environment variable based origins
+_env_origins = config('CORS_ALLOWED_ORIGINS', default='')
+if _env_origins:
+    _cors_origins.extend([origin.strip() for origin in _env_origins.split(',')])
+
+# Add FRONTEND_URL if provided
+_frontend_url = config('FRONTEND_URL', default='')
+if _frontend_url:
+    _cors_origins.append(_frontend_url)
+
+CORS_ALLOWED_ORIGINS = list(set(_cors_origins))  # Remove duplicates
+
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
@@ -173,6 +188,15 @@ CORS_ALLOW_HEADERS = [
     'accept',
     'origin',
     'x-csrftoken',
+]
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
 ]
 
 # REST Framework Configuration for trailing slashes
