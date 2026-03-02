@@ -523,6 +523,19 @@ class TestEmailView(APIView):
         
         logger.info(f"Test email requested to {test_email}")
         
+        # Check if email is configured
+        if not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
+            logger.error("Email credentials not configured")
+            return Response(
+                {
+                    'success': False,
+                    'error': 'email_not_configured',
+                    'detail': 'EMAIL_HOST_USER or EMAIL_HOST_PASSWORD not set in environment variables',
+                    'message': 'Email credentials must be configured on the server before emails can be sent.'
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
         try:
             # Test SMTP by sending a simple test email
             send_mail(
@@ -533,13 +546,14 @@ class TestEmailView(APIView):
                 html_message=f"""
                 <html>
                     <body style="font-family: Arial; text-align: center;">
-                        <h2>✅ SMTP Configuration Working</h2>
+                        <h2>SMTP Configuration Working</h2>
                         <p>Sent at: {timezone.now()}</p>
                         <p>This test confirms your email sending is properly configured.</p>
                     </body>
                 </html>
                 """,
                 fail_silently=False,
+                timeout=10,
             )
             
             logger.info(f"Test email successfully sent to {test_email}")
