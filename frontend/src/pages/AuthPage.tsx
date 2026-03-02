@@ -10,6 +10,41 @@ import {
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
+const extractAuthErrorMessage = (err: any): string => {
+  const status = err?.response?.status;
+  const data = err?.response?.data;
+
+  if (err?.message === 'Network Error') {
+    return 'Unable to reach server. This is usually a CORS or deployment configuration issue.';
+  }
+
+  if (status === 403) {
+    if (data?.error_code === 'email_not_verified') {
+      return 'Email not verified. Please verify your email with OTP before logging in.';
+    }
+    if (data?.error_code === 'account_inactive') {
+      return 'Your account is inactive. Please contact support.';
+    }
+    return data?.detail || 'Access denied.';
+  }
+
+  if (status === 400 && data && typeof data === 'object') {
+    const firstKey = Object.keys(data)[0];
+    const value = firstKey ? data[firstKey] : null;
+    if (Array.isArray(value) && value.length > 0) {
+      return String(value[0]);
+    }
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (typeof data.detail === 'string') {
+      return data.detail;
+    }
+  }
+
+  return data?.detail || data?.error || err?.message || 'Authentication failed. Please try again.';
+};
+
 // Shared Components
 const InputField = ({ label, type, placeholder, icon: Icon, value, onChange, name }: any) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -124,22 +159,15 @@ const AuthPage = () => {
         }
       }
     } catch (err: any) {
-      console.error('Auth error:', err);
-      const errorMessage = err.response?.data?.detail || 
-                          err.response?.data?.error || 
-                          err.message ||
-                          'Authentication failed. Please try again.';
-      setError(errorMessage);
+      setError(extractAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }
   };
 
   const runLogin = async (loginIdentifier: string, password: string) => {
-    console.log('Attempting login with:', loginIdentifier);
     const response = await login(loginIdentifier, password);
-    console.log('Login successful:', response);
-    const userRole = response.user?.role || 'user';
+    const userRole = response.user?.role || 'student';
 
     if (userRole === 'admin') {
       navigate('/admin');
@@ -157,12 +185,7 @@ const AuthPage = () => {
     try {
       await runLogin(account.username, account.password);
     } catch (err: any) {
-      console.error('Auth error:', err);
-      const errorMessage = err.response?.data?.detail ||
-                          err.response?.data?.error ||
-                          err.message ||
-                          'Authentication failed. Please try again.';
-      setError(errorMessage);
+      setError(extractAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }

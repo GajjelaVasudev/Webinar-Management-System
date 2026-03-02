@@ -32,7 +32,12 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-whl3@s0f!$_^+=fis&p-$
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda v: [s.strip() for s in v.split(',')])
+_allowed_hosts_default = 'localhost,127.0.0.1,.onrender.com,.vercel.app'
+ALLOWED_HOSTS = config(
+    'ALLOWED_HOSTS',
+    default=_allowed_hosts_default,
+    cast=lambda v: [s.strip() for s in v.split(',') if s.strip()],
+)
 
 
 # Application definition
@@ -181,6 +186,11 @@ if _frontend_url:
 
 CORS_ALLOWED_ORIGINS = list(set(_cors_origins))  # Remove duplicates
 
+# Support Vercel preview URLs (e.g., https://branch-name-project.vercel.app)
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^https://.*\.vercel\.app$',
+]
+
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
@@ -199,6 +209,12 @@ CORS_ALLOW_METHODS = [
     'POST',
     'PUT',
 ]
+
+# Needed when using JWT APIs from trusted frontends (especially in cross-origin deployments)
+CSRF_TRUSTED_ORIGINS = list(set(CORS_ALLOWED_ORIGINS + [
+    'https://*.vercel.app',
+    'https://*.onrender.com',
+]))
 
 # REST Framework Configuration for trailing slashes
 REST_FRAMEWORK['APPEND_SLASH'] = True
