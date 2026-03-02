@@ -508,7 +508,9 @@ class TestEmailView(APIView):
 
     def post(self, request):
         """Send a test email to verify SMTP configuration"""
-        test_email = request.data.get('email') or request.user.email if request.user.is_authenticated else None
+        test_email = request.data.get('email')
+        if not test_email and request.user.is_authenticated:
+            test_email = request.user.email
         
         if not test_email:
             return Response(
