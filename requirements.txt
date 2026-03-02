@@ -16,3 +16,6 @@ Pillow==11.0.0
 
 # PostgreSQL support (required for production)
 psycopg[binary]==3.2.13
+# Email service
+sendgrid==6.11.0
+django-sendgrid-v5==1.2.2

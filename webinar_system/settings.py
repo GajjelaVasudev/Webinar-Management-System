@@ -220,14 +220,24 @@ CSRF_TRUSTED_ORIGINS = list(set(CORS_ALLOWED_ORIGINS + [
 REST_FRAMEWORK['APPEND_SLASH'] = True
 
 # Email Configuration
-# Using Gmail SMTP with App Password
-EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
-EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
-EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
-EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
-EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
+# Check if SendGrid is configured
+_sendgrid_api_key = config('SENDGRID_API_KEY', default='')
+
+if _sendgrid_api_key:
+    # Use SendGrid for email
+    EMAIL_BACKEND = 'sendgrid_backend.SendgridBackend'
+    SENDGRID_API_KEY = _sendgrid_api_key
+    SENDGRID_SANDBOX_MODE_IN_DEBUG = False
+else:
+    # Fall back to SMTP (for local development)
+    EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
+    EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+    EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+    EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+    EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+    EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@webinar-system.com')
 
 # JWT Configuration
 from datetime import timedelta

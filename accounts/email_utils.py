@@ -9,7 +9,6 @@ This module handles:
 import random
 import string
 import logging
-import socket
 from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth.hashers import make_password
@@ -17,9 +16,6 @@ from django.contrib.auth.models import User
 from .models import EmailVerification
 
 logger = logging.getLogger(__name__)
-
-# Set SMTP timeout to prevent worker crashes (default is infinite)
-socket.setdefaulttimeout(10)
 
 
 def generate_otp(length: int = 6) -> str:
