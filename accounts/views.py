@@ -523,18 +523,34 @@ class TestEmailView(APIView):
         
         logger.info(f"Test email requested to {test_email}")
         
-        # Check if email is configured
-        if not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
-            logger.error("Email credentials not configured")
-            return Response(
-                {
-                    'success': False,
-                    'error': 'email_not_configured',
-                    'detail': 'EMAIL_HOST_USER or EMAIL_HOST_PASSWORD not set in environment variables',
-                    'message': 'Email credentials must be configured on the server before emails can be sent.'
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        email_backend = getattr(settings, 'EMAIL_BACKEND', '').lower()
+        is_sendgrid_backend = 'sendgrid' in email_backend
+
+        # Check if email is configured based on active backend
+        if is_sendgrid_backend:
+            if not getattr(settings, 'SENDGRID_API_KEY', ''):
+                logger.error("SendGrid API key not configured")
+                return Response(
+                    {
+                        'success': False,
+                        'error': 'email_not_configured',
+                        'detail': 'SENDGRID_API_KEY not set in environment variables',
+                        'message': 'SendGrid API key must be configured before emails can be sent.'
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        else:
+            if not getattr(settings, 'EMAIL_HOST_USER', '') or not getattr(settings, 'EMAIL_HOST_PASSWORD', ''):
+                logger.error("SMTP credentials not configured")
+                return Response(
+                    {
+                        'success': False,
+                        'error': 'email_not_configured',
+                        'detail': 'EMAIL_HOST_USER or EMAIL_HOST_PASSWORD not set in environment variables',
+                        'message': 'SMTP credentials must be configured before emails can be sent.'
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
         
         try:
             # Test SMTP by sending a simple test email
@@ -572,9 +588,10 @@ class TestEmailView(APIView):
                 extra={
                     'email': test_email,
                     'error_type': type(e).__name__,
-                    'email_host': settings.EMAIL_HOST,
-                    'email_port': settings.EMAIL_PORT,
-                    'email_use_tls': settings.EMAIL_USE_TLS,
+                    'email_backend': getattr(settings, 'EMAIL_BACKEND', ''),
+                    'email_host': getattr(settings, 'EMAIL_HOST', ''),
+                    'email_port': getattr(settings, 'EMAIL_PORT', ''),
+                    'email_use_tls': getattr(settings, 'EMAIL_USE_TLS', ''),
                 }
             )
             
@@ -584,10 +601,11 @@ class TestEmailView(APIView):
                     'error': 'email_send_failed',
                     'detail': str(e),
                     'debug_info': {
-                        'email_host': settings.EMAIL_HOST,
-                        'email_port': settings.EMAIL_PORT,
-                        'email_use_tls': settings.EMAIL_USE_TLS,
-                        'from_email': settings.DEFAULT_FROM_EMAIL or settings.EMAIL_HOST_USER,
+                        'email_backend': getattr(settings, 'EMAIL_BACKEND', ''),
+                        'email_host': getattr(settings, 'EMAIL_HOST', ''),
+                        'email_port': getattr(settings, 'EMAIL_PORT', ''),
+                        'email_use_tls': getattr(settings, 'EMAIL_USE_TLS', ''),
+                        'from_email': getattr(settings, 'DEFAULT_FROM_EMAIL', '') or getattr(settings, 'EMAIL_HOST_USER', ''),
                         'error_type': type(e).__name__,
                     } if settings.DEBUG else {},
                     'message': 'Failed to send test email. Check server logs for details.'
