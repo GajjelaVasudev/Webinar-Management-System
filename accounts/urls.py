@@ -11,6 +11,8 @@ from .views import (
     LogoutView,
     VerifyEmailView,
     ResendOTPView,
+    TestEmailView,
+    UserDebugStateView,
 )
 
 router = SimpleRouter()
@@ -24,6 +26,8 @@ urlpatterns = [
     path('auth/register/', RegisterView.as_view(), name='register'),
     path('auth/verify-email/', VerifyEmailView.as_view(), name='verify_email'),
     path('auth/resend-otp/', ResendOTPView.as_view(), name='resend_otp'),
+    path('auth/test-email/', TestEmailView.as_view(), name='test_email'),
+    path('auth/debug-state/', UserDebugStateView.as_view(), name='debug_state'),
     path('auth/logout/', LogoutView.as_view(), name='logout'),
     path('auth/change-password/', ChangePasswordView.as_view(), name='change_password'),
     

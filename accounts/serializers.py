@@ -212,3 +212,25 @@ class EmailVerificationResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
     email = serializers.EmailField()
 
+
+class UserDebugStateSerializer(serializers.Serializer):
+    """Debug serializer to show user account and email verification state.
+    
+    Used for troubleshooting registration and email verification issues.
+    Shows:
+    - is_active: Whether user account is activated
+    - is_email_verified: Whether email has been verified
+    - otp_record_exists: Whether OTP verification record exists
+    - otp_created_at: When OTP was created (for debugging expiration)
+    - attempts: Failed verification attempts
+    """
+    user_id = serializers.IntegerField()
+    username = serializers.CharField()
+    email = serializers.EmailField()
+    is_active = serializers.BooleanField()
+    is_email_verified = serializers.BooleanField()
+    otp_record_exists = serializers.BooleanField()
+    otp_created_at = serializers.DateTimeField(allow_null=True)
+    otp_attempts = serializers.IntegerField()
+    otp_is_expired = serializers.BooleanField()
+    message = serializers.CharField()

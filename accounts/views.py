@@ -6,7 +6,10 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
 from django.contrib.auth import update_session_auth_hash
+from django.core.mail import send_mail
+from django.conf import settings
 from django.utils import timezone
+import logging
 
 from .models import UserProfile, EmailVerification
 from .serializers import (
@@ -19,13 +22,23 @@ from .serializers import (
     UserRoleUpdateSerializer,
     VerifyEmailSerializer,
     ResendOTPSerializer,
+    UserDebugStateSerializer,
 )
 from .permissions import IsAdmin
 from .email_utils import create_or_update_email_verification, send_otp_email
 
+logger = logging.getLogger(__name__)
+
 
 class CustomTokenObtainPairView(TokenObtainPairView):
-    """Custom JWT token view that returns user data and includes role"""
+    """Custom JWT token view that returns user data and includes role
+    
+    Login flow:
+    1. Check if user exists
+    2. Verify user.is_active (account deactivation)
+    3. Verify user.profile.is_email_verified (email verification)
+    4. If all checks pass, proceed with token generation
+    """
     permission_classes = [AllowAny]
     serializer_class = EmailOrUsernameTokenObtainPairSerializer
 
@@ -40,22 +53,30 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             if user is None and "@" in login_identifier:
                 user = User.objects.filter(email__iexact=login_identifier).first()
         
-        # Check if user is active and email is verified
+        # GATING LOGIC: Apply checks in order
         if user:
-            # Check if user account is active
+            # CHECK 1: User account must be active
             if not user.is_active:
+                logger.warning(
+                    f"Login attempt for deactivated account",
+                    extra={'username': login_identifier, 'user_id': user.id}
+                )
                 return Response(
                     {
-                        'detail': 'Your account is inactive. Please contact support.',
+                        'detail': 'Your account has been deactivated. Please contact support.',
                         'error_code': 'account_inactive'
                     },
                     status=status.HTTP_403_FORBIDDEN
                 )
             
-            # Check if user email is verified
+            # CHECK 2: User email must be verified
             try:
                 profile = user.profile
                 if not profile.is_email_verified:
+                    logger.warning(
+                        f"Login attempt for unverified email",
+                        extra={'email': user.email, 'user_id': user.id}
+                    )
                     return Response(
                         {
                             'detail': 'Please verify your email first.',
@@ -65,72 +86,129 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                         status=status.HTTP_403_FORBIDDEN
                     )
             except UserProfile.DoesNotExist:
+                logger.error(
+                    f"UserProfile not found for user",
+                    extra={'user_id': user.id, 'email': user.email}
+                )
                 return Response(
-                    {'detail': 'User profile not found'},
+                    {'detail': 'User profile not found. Please contact support.'},
                     status=status.HTTP_404_NOT_FOUND
                 )
         
-        # Proceed with normal token flow
+        # All checks passed - proceed with normal token flow
         response = super().post(request, *args, **kwargs)
         
         if response.status_code == 200 and user:
+            logger.info(
+                f"Successful login",
+                extra={'user_id': user.id, 'email': user.email}
+            )
+            
             # Ensure UserProfile exists and update role for superusers
             profile, created = UserProfile.objects.get_or_create(user=user)
             if user.is_superuser or user.is_staff:
                 if profile.role != 'admin':
                     profile.role = 'admin'
                     profile.save()
+                    logger.info(f"Auto-promoted superuser to admin role", extra={'user_id': user.id})
             
             response.data['user'] = UserSerializer(user, context={'request': request}).data
+        
         return response
 
 
 class RegisterView(APIView):
-    """User registration endpoint with email verification"""
+    """User registration endpoint with email verification
+    
+    Registration flow:
+    1. Create user with is_active=False
+    2. Create UserProfile with is_email_verified=False
+    3. Generate OTP and save hash
+    4. Send email with OTP
+    5. Return success/failure response
+    """
     permission_classes = [AllowAny]
     serializer_class = UserRegistrationSerializer
 
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
-            # Create user with is_active=False
-            user = User.objects.create_user(
-                username=serializer.validated_data['username'],
-                email=serializer.validated_data['email'],
-                password=serializer.validated_data['password'],
-                first_name=serializer.validated_data.get('first_name', ''),
-                last_name=serializer.validated_data.get('last_name', ''),
-                is_active=False  # Deactivate until email is verified
-            )
-            
-            # Ensure UserProfile is created
-            profile, created = UserProfile.objects.get_or_create(user=user)
-            profile.is_email_verified = False
-            profile.save()
-            
-            # Generate and send OTP
-            verification, otp = create_or_update_email_verification(user)
-            email_sent = send_otp_email(user=user, otp=otp)
-            
-            if not email_sent:
-                # If email sending fails, still return success but inform user
+            try:
+                # Step 1: Create user with is_active=False
+                user = User.objects.create_user(
+                    username=serializer.validated_data['username'],
+                    email=serializer.validated_data['email'],
+                    password=serializer.validated_data['password'],
+                    first_name=serializer.validated_data.get('first_name', ''),
+                    last_name=serializer.validated_data.get('last_name', ''),
+                    is_active=False  # User must verify email first
+                )
+                logger.info(f"New user registered: {user.email} (user_id={user.id})")
+                
+                # Step 2: Ensure UserProfile is created
+                profile, created = UserProfile.objects.get_or_create(user=user)
+                profile.is_email_verified = False
+                profile.save()
+                logger.info(f"UserProfile created for {user.email} (user_id={user.id})")
+                
+                # Step 3: Generate and save OTP
+                verification, otp = create_or_update_email_verification(user)
+                logger.debug(f"OTP generated for {user.email} - hash saved in DB")
+                
+                # Step 4: Send OTP email
+                try:
+                    email_sent = send_otp_email(user=user, otp=otp)
+                    logger.info(f"OTP email send attempt completed for {user.email}")
+                    
+                except Exception as email_error:
+                    # Email sending failed - user is still created but can't complete registration
+                    logger.error(
+                        f"Email sending failed during registration for {user.email}",
+                        extra={
+                            'user_id': user.id,
+                            'email': user.email,
+                            'error_type': type(email_error).__name__,
+                        }
+                    )
+                    
+                    # Return clear error about email failure
+                    return Response(
+                        {
+                            "message": "User registered but email sending failed.",
+                            "email": user.email,
+                            "error": "email_send_failed",
+                            "error_detail": str(email_error) if settings.DEBUG else "Unable to send verification email. Please try again later."
+                        },
+                        status=status.HTTP_201_CREATED  # User created, but email not sent
+                    )
+                
+                # Success: Email sent
+                logger.info(f"Registration completed successfully for {user.email} - verification email sent")
                 return Response(
                     {
-                        "message": "User registered but email sending failed. Please try to resend OTP.",
+                        "message": "User registered successfully. Please check your email for the verification code.",
                         "email": user.email,
-                        "error": "email_send_failed"
+                        "username": user.username
                     },
                     status=status.HTTP_201_CREATED
                 )
-            
-            return Response(
-                {
-                    "message": "User registered successfully. Please check your email for the verification code.",
-                    "email": user.email,
-                    "username": user.username
-                },
-                status=status.HTTP_201_CREATED
-            )
+                
+            except Exception as e:
+                # Catch any unexpected errors during registration
+                logger.error(
+                    f"Registration failed with unexpected error",
+                    exc_info=True,
+                    extra={'email': serializer.validated_data.get('email')}
+                )
+                return Response(
+                    {
+                        "error": "registration_failed",
+                        "detail": str(e) if settings.DEBUG else "Registration failed. Please try again."
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        
+        logger.warning(f"Registration validation failed", extra={'errors': serializer.errors})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -414,6 +492,95 @@ class VerifyEmailView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class TestEmailView(APIView):
+    """Temporary debug endpoint to test email sending configuration.
+    
+    This endpoint:
+    - Tests SMTP connectivity
+    - Verifies email_utils.send_otp_email() works
+    - Validates EMAIL settings
+    
+    Response:
+    - 200: Email sent successfully
+    - 500: Email sending failed (shows error details)
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        """Send a test email to verify SMTP configuration"""
+        test_email = request.data.get('email') or request.user.email if request.user.is_authenticated else None
+        
+        if not test_email:
+            return Response(
+                {
+                    'error': 'missing_email',
+                    'detail': 'Please provide email address or be authenticated'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        logger.info(f"Test email requested to {test_email}")
+        
+        try:
+            # Test SMTP by sending a simple test email
+            send_mail(
+                subject="Test Email - SMTP Configuration Check",
+                message=f"This is a test email sent at {timezone.now()}. If you received this, SMTP is working correctly.",
+                from_email=settings.DEFAULT_FROM_EMAIL or settings.EMAIL_HOST_USER,
+                recipient_list=[test_email],
+                html_message=f"""
+                <html>
+                    <body style="font-family: Arial; text-align: center;">
+                        <h2>✅ SMTP Configuration Working</h2>
+                        <p>Sent at: {timezone.now()}</p>
+                        <p>This test confirms your email sending is properly configured.</p>
+                    </body>
+                </html>
+                """,
+                fail_silently=False,
+            )
+            
+            logger.info(f"Test email successfully sent to {test_email}")
+            return Response(
+                {
+                    'success': True,
+                    'message': f'Test email sent successfully to {test_email}',
+                    'timestamp': timezone.now().isoformat()
+                },
+                status=status.HTTP_200_OK
+            )
+            
+        except Exception as e:
+            logger.error(
+                f"Test email failed to {test_email}",
+                exc_info=True,
+                extra={
+                    'email': test_email,
+                    'error_type': type(e).__name__,
+                    'email_host': settings.EMAIL_HOST,
+                    'email_port': settings.EMAIL_PORT,
+                    'email_use_tls': settings.EMAIL_USE_TLS,
+                }
+            )
+            
+            return Response(
+                {
+                    'success': False,
+                    'error': 'email_send_failed',
+                    'detail': str(e),
+                    'debug_info': {
+                        'email_host': settings.EMAIL_HOST,
+                        'email_port': settings.EMAIL_PORT,
+                        'email_use_tls': settings.EMAIL_USE_TLS,
+                        'from_email': settings.DEFAULT_FROM_EMAIL or settings.EMAIL_HOST_USER,
+                        'error_type': type(e).__name__,
+                    } if settings.DEBUG else {},
+                    'message': 'Failed to send test email. Check server logs for details.'
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
 class ResendOTPView(APIView):
     """Resend OTP endpoint"""
     permission_classes = [AllowAny]
@@ -484,3 +651,86 @@ class ResendOTPView(APIView):
             )
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserDebugStateView(APIView):
+    """Debug endpoint to inspect user verification and account state.
+    
+    This endpoint is for troubleshooting - shows:
+    - is_active: Whether account is activated
+    - is_email_verified: Whether email is verified
+    - OTP record existence and timestamps
+    - Failed verification attempts
+    
+    SECURITY: This should be disabled or require admin permission in production.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        """Get user state for debugging"""
+        email = request.data.get('email')
+        
+        if not email:
+            return Response(
+                {'error': 'email_required', 'detail': 'Please provide email address'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'user_not_found', 'detail': f'No user found with email {email}'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        logger.info(f"Debug state requested for user {email}")
+        
+        # Get OTP information
+        otp_record = None
+        otp_exists = False
+        otp_created_at = None
+        otp_attempts = 0
+        otp_is_expired = False
+        
+        try:
+            otp_record = EmailVerification.objects.get(user=user)
+            otp_exists = True
+            otp_created_at = otp_record.created_at
+            otp_attempts = otp_record.attempts
+            otp_is_expired = otp_record.is_expired()
+        except EmailVerification.DoesNotExist:
+            otp_exists = False
+        
+        # Determine message
+        if user.is_active and user.profile.is_email_verified:
+            message = "[OK] User is active and email is verified. User can log in."
+        elif not user.is_active:
+            message = "[WARNING] User account is deactivated. They cannot log in."
+        elif not user.profile.is_email_verified:
+            if otp_exists:
+                if otp_is_expired:
+                    message = "[WARNING] Email not verified. OTP has expired. User should request new OTP."
+                else:
+                    message = f"[PENDING] Email not verified. OTP is valid (expires ~{(otp_record.created_at + timezone.timedelta(minutes=10)).strftime('%H:%M:%S')})."
+            else:
+                message = "[ERROR] Email not verified. No OTP record found. User may have completed registration but OTP was not sent."
+        else:
+            message = "[WARNING] Account state is unclear. Check individual fields."
+        
+        data = {
+            'user_id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'is_active': user.is_active,
+            'is_email_verified': user.profile.is_email_verified,
+            'otp_record_exists': otp_exists,
+            'otp_created_at': otp_created_at,
+            'otp_attempts': otp_attempts,
+            'otp_is_expired': otp_is_expired,
+            'message': message,
+        }
+        
+        serializer = UserDebugStateSerializer(data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+

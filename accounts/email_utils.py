@@ -1,13 +1,21 @@
 """
 Email utilities for sending OTP and verification emails
+
+This module handles:
+- OTP generation and hashing
+- Email sending with proper error handling
+- Email verification flow
 """
 import random
 import string
+import logging
 from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
 from .models import EmailVerification
+
+logger = logging.getLogger(__name__)
 
 
 def generate_otp(length: int = 6) -> str:
@@ -25,7 +33,7 @@ def generate_otp(length: int = 6) -> str:
 
 def send_otp_email(user: User, otp: str) -> bool:
     """
-    Send OTP to user's email address
+    Send OTP to user's email address with proper error handling.
     
     Args:
         user: User object
@@ -33,6 +41,9 @@ def send_otp_email(user: User, otp: str) -> bool:
     
     Returns:
         Boolean indicating success/failure
+        
+    Raises:
+        Exception: If SMTP sending fails (allows caller to handle)
     """
     try:
         subject = "Email Verification Code"
@@ -88,23 +99,39 @@ def send_otp_email(user: User, otp: str) -> bool:
         Webinar Management System Team
         """
         
+        logger.info(f"Attempting to send OTP email to {user.email} (user_id={user.id})")
+        
         send_mail(
             subject=subject,
             message=plain_message,
             from_email=settings.DEFAULT_FROM_EMAIL or settings.EMAIL_HOST_USER,
             recipient_list=[user.email],
             html_message=html_message,
-            fail_silently=False,
+            fail_silently=False,  # Let exceptions propagate
         )
+        
+        logger.info(f"OTP email successfully sent to {user.email}")
         return True
+        
     except Exception as e:
-        print(f"Failed to send email: {str(e)}")
-        return False
+        # Log the full exception details for debugging
+        logger.error(
+            f"Failed to send OTP email to {user.email}",
+            exc_info=True,
+            extra={
+                'user_id': user.id,
+                'email': user.email,
+                'error_type': type(e).__name__,
+                'error_message': str(e)
+            }
+        )
+        # Re-raise so caller can handle
+        raise
 
 
 def create_or_update_email_verification(user: User) -> tuple:
     """
-    Create or update email verification record with new OTP
+    Create or update email verification record with new OTP.
     
     Args:
         user: User object
@@ -118,12 +145,17 @@ def create_or_update_email_verification(user: User) -> tuple:
     # Hash OTP
     otp_hash = make_password(otp)
     
+    logger.info(f"Generated new OTP for user {user.email} (user_id={user.id})")
+    
     # Create or update verification record
     verification, created = EmailVerification.objects.get_or_create(user=user)
     verification.otp_hash = otp_hash
     verification.attempts = 0
     verification.resent_at = None
     verification.save()
+    
+    action = "created" if created else "updated"
+    logger.info(f"Email verification record {action} for user {user.email} (user_id={user.id})")
     
     return verification, otp
 
