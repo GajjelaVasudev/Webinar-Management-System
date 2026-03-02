@@ -553,7 +553,6 @@ class TestEmailView(APIView):
                 </html>
                 """,
                 fail_silently=False,
-                timeout=10,
             )
             
             logger.info(f"Test email successfully sent to {test_email}")
