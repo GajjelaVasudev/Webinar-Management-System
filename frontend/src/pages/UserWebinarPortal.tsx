@@ -694,9 +694,9 @@ const UserWebinarPortal = () => {
     if (notif.webinar_id || notif.related_webinar) {
       const webinarId = notif.webinar_id || notif.related_webinar;
       // Find the webinar and open its modal
-      const webinar = webinars.find((w: any) => w.id === webinarId);
-      if (webinar) {
-        setSelectedWebinar(webinar);
+      const foundWebinar = events.find((w: any) => w.id === webinarId);
+      if (foundWebinar) {
+        setSelectedWebinar(foundWebinar);
       }
     }
   };
@@ -1697,7 +1697,7 @@ const UserWebinarPortal = () => {
 
     const handleLogout = () => {
       authService.logout();
-      navigate("/auth?mode=login");
+      navigate("/");
     };
 
     if (isLoading) {
@@ -1958,6 +1958,7 @@ const UserWebinarPortal = () => {
         setShowNotifications={setShowNotifications}
         onMarkAsRead={markAsRead}
         onMarkAllAsRead={markAllAsRead}
+        onNotificationClick={handleNotificationClick}
       />
       <main className="flex-1 max-w-7xl w-full mx-auto px-6 py-10">
         {eventsError && (

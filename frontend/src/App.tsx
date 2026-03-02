@@ -2,10 +2,12 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 import UserWebinarPortal from './pages/UserWebinarPortal';
 import AdminDashboard from './pages/AdminDashboard';
 import InboxPage from './pages/InboxPage';
-import RoleProtectedRoute from './routes/RoleProtectedRoute';
+import UserProfilePage from './pages/UserProfilePage';
+import { ProtectedRoute, AdminRoute, StudentRoute } from './routes';
 
 // Component to redirect authenticated users from auth page
 const AuthRedirect = () => {
@@ -23,18 +25,54 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/auth" element={<AuthRedirect />} />
-      <Route path="/user-portal" element={<UserWebinarPortal />} />
-      <Route path="/inbox" element={<InboxPage />} />
-      <Route path="/admin" element={
-        <RoleProtectedRoute allowedRoles={['admin']}>
-          <AdminDashboard />
-        </RoleProtectedRoute>
-      } />
-      <Route path="/admin/dashboard" element={
-        <RoleProtectedRoute allowedRoles={['admin']}>
-          <AdminDashboard />
-        </RoleProtectedRoute>
-      } />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
+      
+      {/* Protected Routes - Require Authentication */}
+      <Route 
+        path="/profile" 
+        element={
+          <ProtectedRoute>
+            <UserProfilePage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/user-portal" 
+        element={
+          <StudentRoute>
+            <UserWebinarPortal />
+          </StudentRoute>
+        } 
+      />
+      <Route 
+        path="/inbox" 
+        element={
+          <ProtectedRoute>
+            <InboxPage />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Admin Only Routes */}
+      <Route 
+        path="/admin" 
+        element={
+          <AdminRoute>
+            <AdminDashboard />
+          </AdminRoute>
+        } 
+      />
+      <Route 
+        path="/admin/dashboard" 
+        element={
+          <AdminRoute>
+            <AdminDashboard />
+          </AdminRoute>
+        } 
+      />
+      
+      {/* Catch-all - Redirect to home */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

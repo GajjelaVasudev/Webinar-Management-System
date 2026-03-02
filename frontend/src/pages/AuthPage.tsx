@@ -114,10 +114,14 @@ const AuthPage = () => {
           return;
         }
         
-        await register(formData.username, formData.email, formData.password);
-        setIsLogin(true);
-        setFormData({ username: '', email: '', password: '' });
-        setError('Registration successful! Please log in.');
+        const result = await register(formData.username, formData.email, formData.password);
+        
+        // Redirect to email verification page
+        if (result) {
+          navigate('/verify-email', { state: { email: formData.email } });
+        } else {
+          setError('Registration failed. Please try again.');
+        }
       }
     } catch (err: any) {
       console.error('Auth error:', err);

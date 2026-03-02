@@ -8,7 +8,9 @@ from .views import (
     UserProfileViewSet,
     UserViewSet,
     ChangePasswordView,
-    ForceDemoUsersView,
+    LogoutView,
+    VerifyEmailView,
+    ResendOTPView,
 )
 
 router = SimpleRouter()
@@ -20,10 +22,10 @@ urlpatterns = [
     path('auth/login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/register/', RegisterView.as_view(), name='register'),
+    path('auth/verify-email/', VerifyEmailView.as_view(), name='verify_email'),
+    path('auth/resend-otp/', ResendOTPView.as_view(), name='resend_otp'),
+    path('auth/logout/', LogoutView.as_view(), name='logout'),
     path('auth/change-password/', ChangePasswordView.as_view(), name='change_password'),
-    
-    # TEMPORARY REVIEW ENDPOINT - REMOVE AFTER DEMO
-    path('force-demo/', ForceDemoUsersView.as_view(), name='force_demo_users'),
     
     # User and profile endpoints
     path('', include(router.urls)),

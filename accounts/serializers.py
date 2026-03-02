@@ -1,13 +1,30 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import Token
 from .models import UserProfile
 
 
 class EmailOrUsernameTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """Custom JWT serializer that accepts either username or email"""
+    """Custom JWT serializer that accepts either username or email and includes role"""
     
     username_field = 'username'
+
+    @classmethod
+    def get_token(cls, user):
+        """Override to include role in token"""
+        token = super().get_token(user)
+        
+        # Add custom claims
+        try:
+            token['role'] = user.profile.role
+        except UserProfile.DoesNotExist:
+            token['role'] = 'student'
+        
+        token['username'] = user.username
+        token['email'] = user.email
+        
+        return token
 
     def validate(self, attrs):
         credentials = {
@@ -27,29 +44,100 @@ class EmailOrUsernameTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     """Serializer for UserProfile model"""
+    profile_picture_url = serializers.SerializerMethodField()
     
     class Meta:
         model = UserProfile
-        fields = ['role', 'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at']
+        fields = ['id', 'role', 'profile_picture', 'profile_picture_url', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def get_profile_picture_url(self, obj):
+        """Get full URL for profile picture"""
+        request = self.context.get('request')
+        if obj.profile_picture:
+            if request:
+                return request.build_absolute_uri(obj.profile_picture.url)
+            return obj.profile_picture.url
+        return None
 
 
 class UserSerializer(serializers.ModelSerializer):
     """User serializer with profile information"""
     profile = UserProfileSerializer(read_only=True)
     role = serializers.SerializerMethodField()
+    profile_picture_url = serializers.SerializerMethodField()
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'profile', 'role', 'is_staff', 'is_superuser']
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name', 
+            'profile', 'role', 'profile_picture_url', 'is_staff', 'is_superuser'
+        ]
         read_only_fields = ['id', 'is_staff', 'is_superuser']
     
     def get_role(self, obj):
-        """Get role from profile, defaulting to 'user'"""
+        """Get role from profile, defaulting to 'student'"""
         try:
             return obj.profile.role
         except UserProfile.DoesNotExist:
-            return 'user'
+            return 'student'
+    
+    def get_profile_picture_url(self, obj):
+        """Get full URL for profile picture"""
+        request = self.context.get('request')
+        try:
+            if obj.profile.profile_picture:
+                if request:
+                    return request.build_absolute_uri(obj.profile.profile_picture.url)
+                return obj.profile.profile_picture.url
+        except UserProfile.DoesNotExist:
+            pass
+        return None
+
+
+class UserListSerializer(serializers.ModelSerializer):
+    """Serializer for listing users (admin only)"""
+    profile = UserProfileSerializer(read_only=True)
+    role = serializers.SerializerMethodField()
+    profile_picture_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'role', 'profile_picture_url', 'profile', 'is_active'
+        ]
+        read_only_fields = ['id', 'username', 'is_active']
+    
+    def get_role(self, obj):
+        """Get role from profile"""
+        try:
+            return obj.profile.role
+        except UserProfile.DoesNotExist:
+            return 'student'
+    
+    def get_profile_picture_url(self, obj):
+        """Get full URL for profile picture"""
+        request = self.context.get('request')
+        try:
+            if obj.profile.profile_picture:
+                if request:
+                    return request.build_absolute_uri(obj.profile.profile_picture.url)
+                return obj.profile.profile_picture.url
+        except UserProfile.DoesNotExist:
+            pass
+        return None
+
+
+class UserRoleUpdateSerializer(serializers.Serializer):
+    """Serializer for updating user role (admin only)"""
+    role = serializers.ChoiceField(choices=['admin', 'student'])
+    
+    def validate_role(self, value):
+        """Validate role choice"""
+        if value not in ['admin', 'student']:
+            raise serializers.ValidationError("Invalid role. Must be 'admin' or 'student'.")
+        return value
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -72,6 +160,12 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("A user with this email already exists.")
         return value
     
+    def validate_username(self, value):
+        """Ensure username is unique and valid"""
+        if User.objects.filter(username__iexact=value).exists():
+            raise serializers.ValidationError("A user with this username already exists.")
+        return value
+    
     def create(self, validated_data):
         validated_data.pop('password_confirm')
         user = User.objects.create_user(
@@ -86,11 +180,35 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 class ChangePasswordSerializer(serializers.Serializer):
     """Serializer for password change"""
-    old_password = serializers.CharField(required=True)
-    new_password = serializers.CharField(required=True, min_length=8)
-    new_password_confirm = serializers.CharField(required=True)
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, min_length=8, write_only=True)
+    new_password_confirm = serializers.CharField(required=True, write_only=True)
     
     def validate(self, attrs):
         if attrs['new_password'] != attrs['new_password_confirm']:
             raise serializers.ValidationError({"new_password": "Passwords do not match."})
         return attrs
+
+
+class VerifyEmailSerializer(serializers.Serializer):
+    """Serializer for email verification with OTP"""
+    email = serializers.EmailField(required=True)
+    otp = serializers.CharField(required=True, min_length=6, max_length=6)
+    
+    def validate_otp(self, value):
+        """Validate OTP format (must be 6 digits)"""
+        if not value.isdigit():
+            raise serializers.ValidationError("OTP must contain only digits.")
+        return value
+
+
+class ResendOTPSerializer(serializers.Serializer):
+    """Serializer for resending OTP"""
+    email = serializers.EmailField(required=True)
+
+
+class EmailVerificationResponseSerializer(serializers.Serializer):
+    """Serializer for email verification response"""
+    message = serializers.CharField()
+    email = serializers.EmailField()
+

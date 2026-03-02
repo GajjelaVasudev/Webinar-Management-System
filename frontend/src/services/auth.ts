@@ -4,7 +4,13 @@ interface User {
     id: number;
     username: string;
     email: string;
+    first_name?: string;
+    last_name?: string;
     role?: string;
+    profile_picture_url?: string | null;
+    profile?: {
+        profile_picture_url?: string | null;
+    };
 }
 
 interface LoginResponse {
@@ -23,17 +29,16 @@ interface UserProfile {
     username: string;
     email: string;
     role: string;
+    profile_picture_url?: string | null;
 }
 
 const authService = {
     login: async (username: string, password: string): Promise<LoginResponse> => {
         try {
-            console.log('Auth service: Sending login request to /accounts/auth/login/');
             const response = await apiClient.post<LoginResponse>('/accounts/auth/login/', {
                 username,
                 password,
             });
-            console.log('Auth service: Login response received', response.data);
             
             if (response.data.access) {
                 localStorage.setItem('access_token', response.data.access);
@@ -42,24 +47,20 @@ const authService = {
             }
             return response.data;
         } catch (error: any) {
-            console.error('Auth service: Login failed', error.response?.data || error.message);
             throw error;
         }
     },
 
     register: async (username: string, email: string, password: string): Promise<RegisterResponse> => {
         try {
-            console.log('Auth service: Sending registration request');
             const response = await apiClient.post<RegisterResponse>('/accounts/auth/register/', {
                 username,
                 email,
                 password,
                 password_confirm: password,
             });
-            console.log('Auth service: Registration successful');
             return response.data;
         } catch (error: any) {
-            console.error('Auth service: Registration failed', error.response?.data || error.message);
             throw error;
         }
     },
@@ -89,7 +90,6 @@ const authService = {
             const response = await apiClient.get<UserProfile>('/accounts/users/me/');
             return response.data;
         } catch (error) {
-            console.error('Failed to fetch user profile:', error);
             throw error;
         }
     },
@@ -99,7 +99,6 @@ const authService = {
             const response = await apiClient.get<UserProfile>('/accounts/users/me/');
             return response.data;
         } catch (error) {
-            console.error('Failed to fetch current user:', error);
             throw error;
         }
     },

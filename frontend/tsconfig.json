@@ -13,7 +13,7 @@
     "jsx": "react-jsx",
 
     "strict": true,
-    "types": ["node", "react", "jest"],
+    "types": ["node", "react", "vitest/globals"],
 
     "forceConsistentCasingInFileNames": true
   },

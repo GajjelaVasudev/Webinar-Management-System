@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../services/api';
 import JitsiMeetComponent from '../components/JitsiMeetComponent';
+import RoleManagementModal from '../components/RoleManagementModal';
 import { 
   LayoutDashboard, CalendarPlus, Users, Video, 
   LogOut, Search, Bell, Plus, Upload, 
@@ -359,7 +360,8 @@ const AdminDashboard: React.FC = () => {
   const [webinarSearchTerm, setWebinarSearchTerm] = useState<string>('');
   const [sliderScrollPosition, setSliderScrollPosition] = useState<number>(0);
   const webinarSliderRef = useRef<HTMLDivElement>(null);
-  const [roleManagementForm, setRoleManagementForm] = useState({ username: '', role: 'user' });
+  const [roleManagementForm, setRoleManagementForm] = useState({ username: '', role: 'student' });
+  const [showRoleManagementModal, setShowRoleManagementModal] = useState<boolean>(false);
   
   // Form state for scheduling
   const [formData, setFormData] = useState({
@@ -729,7 +731,7 @@ const AdminDashboard: React.FC = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/auth');
+    navigate('/');
   };
 
   const handleStartLiveSession = async (webinarId: number, webinarTitle: string) => {
@@ -868,9 +870,26 @@ const AdminDashboard: React.FC = () => {
                     className="flex gap-4 overflow-x-hidden scroll-smooth"
                     style={{ scrollBehavior: 'smooth' }}
                   >
-                    {filteredWebinars
-                      .filter(w => w.title.toLowerCase().includes(webinarSearchTerm.toLowerCase()))
-                      .map((webinar) => (
+                    {(() => {
+                      const visibleWebinars = filteredWebinars
+                        .filter(w => w.title.toLowerCase().includes(webinarSearchTerm.toLowerCase()));
+
+                      if (visibleWebinars.length === 0) {
+                        return (
+                          <div className="w-full bg-white rounded-lg border border-dashed border-gray-300 p-6 text-center">
+                            <p className="text-sm font-semibold text-gray-700">No webinars available to go live.</p>
+                            <p className="text-xs text-gray-500 mt-1">Create a webinar to enable live sessions.</p>
+                            <button
+                              onClick={() => setView('schedule')}
+                              className="mt-3 inline-flex items-center justify-center px-4 py-2 rounded-lg bg-pink-500 hover:bg-pink-600 text-white text-xs font-bold"
+                            >
+                              Create Webinar
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      return visibleWebinars.map((webinar) => (
                         <div
                           key={webinar.id}
                           className="flex-shrink-0 w-72 bg-gray-50 p-4 rounded-lg border border-gray-200 hover:shadow-md transition flex flex-col"
@@ -930,7 +949,8 @@ const AdminDashboard: React.FC = () => {
                             )}
                           </div>
                         </div>
-                      ))}
+                      ));
+                    })()}
                   </div>
 
                   {/* Right Arrow Button */}
@@ -1190,6 +1210,13 @@ const AdminDashboard: React.FC = () => {
                 <h1 className="text-3xl font-extrabold text-slate-900">Users & Roles</h1>
                 <p className="text-gray-500 mt-1">Manage users and their roles.</p>
               </div>
+              <button
+                onClick={() => setShowRoleManagementModal(true)}
+                className="mt-4 md:mt-0 px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition flex items-center gap-2"
+              >
+                <Users size={18} />
+                {users.length} Users
+              </button>
             </div>
 
             {/* Role Management Form */}
@@ -1212,7 +1239,7 @@ const AdminDashboard: React.FC = () => {
                     return;
                   }
                   addToast('success', `${targetUser.username}'s role updated to ${roleManagementForm.role}`);
-                  setRoleManagementForm({ username: '', role: 'user' });
+                  setRoleManagementForm({ username: '', role: 'student' });
                 }}
                 className="space-y-4"
               >
@@ -1234,7 +1261,7 @@ const AdminDashboard: React.FC = () => {
                       onChange={(e) => setRoleManagementForm(prev => ({ ...prev, role: e.target.value }))}
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent text-slate-900"
                     >
-                      <option value="user">User</option>
+                      <option value="student">Student</option>
                       <option value="admin">Admin</option>
                     </select>
                   </div>
@@ -1767,6 +1794,17 @@ const AdminDashboard: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {/* Role Management Modal */}
+      <RoleManagementModal
+        isOpen={showRoleManagementModal}
+        onClose={() => setShowRoleManagementModal(false)}
+        users={users}
+        onRoleUpdate={(userId, newRole) => {
+          setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+          addToast('success', 'Role updated successfully');
+        }}
+      />
     </div>
   );
 };

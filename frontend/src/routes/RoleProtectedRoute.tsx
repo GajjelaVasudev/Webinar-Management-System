@@ -7,19 +7,36 @@ interface RoleProtectedRouteProps {
   children: React.ReactNode;
 }
 
+/**
+ * Component to protect routes based on user role
+ * Usage: <RoleProtectedRoute allowedRoles={['admin']}><AdminDashboard /></RoleProtectedRoute>
+ */
 const RoleProtectedRoute: React.FC<RoleProtectedRouteProps> = ({ allowedRoles, children }) => {
   const { isAuthenticated, role, loading } = useAuth();
 
   if (loading) {
-    return <div style={{ padding: '20px', textAlign: 'center' }}>Loading...</div>;
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '100vh' 
+      }}>
+        <div>Loading...</div>
+      </div>
+    );
   }
 
   if (!isAuthenticated) {
     return <Navigate to="/auth" replace />;
   }
 
-  if (!allowedRoles.includes(role || '')) {
-    return <Navigate to="/" replace />;
+  if (!role || !allowedRoles.includes(role)) {
+    // Redirect based on their actual role
+    if (role === 'admin') {
+      return <Navigate to="/admin" replace />;
+    }
+    return <Navigate to="/user-portal" replace />;
   }
 
   return <>{children}</>;

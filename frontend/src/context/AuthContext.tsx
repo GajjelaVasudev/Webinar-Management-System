@@ -1,11 +1,18 @@
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import authService from '../services/auth';
+import { useNavigate } from 'react-router-dom';
 
 interface User {
     id: number;
     username: string;
     email: string;
+    first_name?: string;
+    last_name?: string;
     role?: string;
+    profile_picture_url?: string | null;
+    profile?: {
+        profile_picture_url?: string | null;
+    };
 }
 
 interface AuthContextType {
@@ -16,11 +23,9 @@ interface AuthContextType {
     login: (username: string, password: string) => Promise<any>;
     register: (username: string, email: string, password: string) => Promise<boolean>;
     logout: () => void;
-    switchRole: (newRole: string) => void;
-    getEffectiveRole: () => string | null;
+    refreshUserData: () => Promise<void>;
     isAdmin: () => boolean;
-    isViewingAs: (checkRole: string) => boolean;
-    viewingAsRole: string | null;
+    isStudent: () => boolean;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,10 +37,10 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [role, setRole] = useState<string | null>(null);
-    const [viewingAsRole, setViewingAsRole] = useState<string | null>(null);
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
     const [loading, setLoading] = useState<boolean>(true);
 
+    // Bootstrap auth state on mount
     useEffect(() => {
         const bootstrap = async () => {
             const token = authService.getToken();
@@ -46,19 +51,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
             setIsAuthenticated(true);
             try {
-                const profile = await authService.getUserProfile();
                 const me = await authService.getMe();
-                const mergedUser = { id: me.id, username: me.username, email: me.email, role: profile.role };
-                setUser(mergedUser);
-                setRole(profile.role);
-                localStorage.setItem('user', JSON.stringify(mergedUser));
-                localStorage.setItem('user_role', profile.role);
+                const userRole = me.role || 'student';
+                
+                setUser(me);
+                setRole(userRole);
+                
+                localStorage.setItem('user', JSON.stringify(me));
+                localStorage.setItem('user_role', userRole);
             } catch (error) {
-                console.error('Failed to bootstrap auth state:', error);
                 authService.logout();
                 setIsAuthenticated(false);
                 setUser(null);
                 setRole(null);
+                localStorage.removeItem('user');
+                localStorage.removeItem('user_role');
             } finally {
                 setLoading(false);
             }
@@ -67,88 +74,90 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         bootstrap();
     }, []);
 
-    const fetchUserProfile = async (): Promise<string | null> => {
+    // Refresh user profile data
+    const refreshUserData = useCallback(async () => {
         try {
-            const userProfile = await authService.getUserProfile();
-            setRole(userProfile.role);
-            localStorage.setItem('user_role', userProfile.role);
-            return userProfile.role;
+            const me = await authService.getMe();
+            const userRole = me.role || 'student';
+            
+            setUser(me);
+            setRole(userRole);
+            
+            localStorage.setItem('user', JSON.stringify(me));
+            localStorage.setItem('user_role', userRole);
         } catch (error) {
-            console.error('Failed to fetch user profile:', error);
-            setRole('user');
-            return 'user';
+            // If refresh fails, logout user
+            logout();
         }
-    };
+    }, []);
 
-    const login = async (username: string, password: string): Promise<any> => {
+    const login = useCallback(async (username: string, password: string): Promise<any> => {
         try {
             const response = await authService.login(username, password);
-            const latestRole = await fetchUserProfile();
-            const mergedUser = { ...response.user, role: latestRole || response.user.role || 'user' };
-            setUser(mergedUser);
+            const userData = response.user;
+            const userRole = userData.role || 'student';
+            
+            setUser(userData);
             setIsAuthenticated(true);
-            setRole(mergedUser.role || 'user');
-            localStorage.setItem('user', JSON.stringify(mergedUser));
-            localStorage.setItem('user_role', mergedUser.role || 'user');
-            setViewingAsRole(null);
+            setRole(userRole);
+            
+            localStorage.setItem('user', JSON.stringify(userData));
+            localStorage.setItem('user_role', userRole);
+            
             return response;
         } catch (error) {
             throw error;
         }
-    };
+    }, []);
 
-    const register = async (username: string, email: string, password: string): Promise<boolean> => {
+    const register = useCallback(async (username: string, email: string, password: string): Promise<boolean> => {
         try {
             await authService.register(username, email, password);
             return true;
         } catch (error) {
             throw error;
         }
-    };
+    }, []);
 
-    const logout = (): void => {
+    const logout = useCallback((): void => {
+        // Clear auth service
         authService.logout();
+        
+        // Clear state
         setUser(null);
         setIsAuthenticated(false);
         setRole(null);
-        setViewingAsRole(null);
-    };
+        
+        // Clear localStorage
+        localStorage.removeItem('user');
+        localStorage.removeItem('user_role');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+    }, []);
 
-    const switchRole = (newRole: string): void => {
-        if (role === 'admin') {
-            setViewingAsRole(newRole === viewingAsRole ? null : newRole);
-        }
-    };
+    const isAdmin = useCallback((): boolean => {
+        return role === 'admin';
+    }, [role]);
 
-    const getEffectiveRole = (): string | null => {
-        if (viewingAsRole && role === 'admin') {
-            return viewingAsRole;
-        }
-        return role;
-    };
+    const isStudent = useCallback((): boolean => {
+        return role === 'student';
+    }, [role]);
 
-    const isAdmin = (): boolean => role === 'admin';
-
-    const isViewingAs = (checkRole: string): boolean => {
-        if (!isAdmin()) return false;
-        return viewingAsRole === checkRole;
+    const value: AuthContextType = {
+        user,
+        role,
+        isAuthenticated,
+        loading,
+        login,
+        register,
+        logout,
+        refreshUserData,
+        isAdmin,
+        isStudent,
     };
 
     return (
-        <AuthContext.Provider value={{
-            user,
-            role,
-            isAuthenticated,
-            loading,
-            login,
-            register,
-            logout,
-            switchRole,
-            getEffectiveRole,
-            isAdmin,
-            isViewingAs,
-            viewingAsRole,
-        }}>
+        <AuthContext.Provider value={value}>
             {children}
         </AuthContext.Provider>
     );
