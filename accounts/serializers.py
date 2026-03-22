@@ -19,7 +19,7 @@ class EmailOrUsernameTokenObtainPairSerializer(TokenObtainPairSerializer):
         try:
             token['role'] = user.profile.role
         except UserProfile.DoesNotExist:
-            token['role'] = 'student'
+            token['role'] = 'admin' if (user.is_superuser or user.is_staff) else 'student'
         
         token['username'] = user.username
         token['email'] = user.email
@@ -80,7 +80,7 @@ class UserSerializer(serializers.ModelSerializer):
         try:
             return obj.profile.role
         except UserProfile.DoesNotExist:
-            return 'student'
+            return 'admin' if (obj.is_superuser or obj.is_staff) else 'student'
     
     def get_profile_picture_url(self, obj):
         """Get full URL for profile picture"""
@@ -114,7 +114,7 @@ class UserListSerializer(serializers.ModelSerializer):
         try:
             return obj.profile.role
         except UserProfile.DoesNotExist:
-            return 'student'
+            return 'admin' if (obj.is_superuser or obj.is_staff) else 'student'
     
     def get_profile_picture_url(self, obj):
         """Get full URL for profile picture"""

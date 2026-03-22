@@ -14,65 +14,77 @@ const extractAuthErrorMessage = (err: any): string => {
   const status = err?.response?.status;
   const data = err?.response?.data;
 
-  if (err?.message === 'Network Error') {
-    return 'Unable to reach server. This is usually a CORS or deployment configuration issue.';
+  if (err?.message === "Network Error") {
+    return "Unable to reach server. This is usually a CORS or deployment configuration issue.";
   }
 
   if (status === 403) {
-    if (data?.error_code === 'email_not_verified') {
-      return 'Email not verified. Please verify your email with OTP before logging in.';
+    if (data?.error_code === "email_not_verified") {
+      return "Email not verified. Please verify your email with OTP before logging in.";
     }
-    if (data?.error_code === 'account_inactive') {
-      return 'Your account is inactive. Please contact support.';
+    if (data?.error_code === "account_inactive") {
+      return "Your account is inactive. Please contact support.";
     }
-    return data?.detail || 'Access denied.';
+    return data?.detail || "Access denied.";
   }
 
-  if (status === 400 && data && typeof data === 'object') {
+  if (status === 400 && data && typeof data === "object") {
     const firstKey = Object.keys(data)[0];
     const value = firstKey ? data[firstKey] : null;
     if (Array.isArray(value) && value.length > 0) {
       return String(value[0]);
     }
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       return value;
     }
-    if (typeof data.detail === 'string') {
+    if (typeof data.detail === "string") {
       return data.detail;
     }
   }
 
-  return data?.detail || data?.error || err?.message || 'Authentication failed. Please try again.';
+  return (
+    data?.detail ||
+    data?.error ||
+    err?.message ||
+    "Authentication failed. Please try again."
+  );
 };
 
-// Shared Components
-const InputField = ({ label, type, placeholder, icon: Icon, value, onChange, name }: any) => {
+const InputField = ({
+  label,
+  type,
+  placeholder,
+  icon: Icon,
+  value,
+  onChange,
+  name,
+}: any) => {
   const [showPassword, setShowPassword] = useState(false);
   const isPassword = type === "password";
 
   return (
     <div className="mb-5">
-      <label className="block text-slate-700 text-sm font-bold mb-2 ml-1">
-        {label}
-      </label>
-      <div className="relative group">
-        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-          <Icon className="h-5 w-5 text-gray-400 group-focus-within:text-pink-500 transition-colors" />
+      <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+      <div className="relative">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Icon className="h-5 w-5 text-gray-400" />
         </div>
+
         <input
           type={isPassword && showPassword ? "text" : type}
           name={name}
           value={value}
           onChange={onChange}
-          className="w-full pl-11 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 transition-all text-slate-800 placeholder-gray-400"
           placeholder={placeholder}
+          className="w-full pl-11 pr-12 py-3 bg-white border border-gray-200 rounded-xl text-slate-900 placeholder-gray-400 focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 transition"
           required
         />
+
         {isPassword && (
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-pink-600 transition-colors"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-violet-700 transition-colors"
           >
             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
@@ -83,34 +95,30 @@ const InputField = ({ label, type, placeholder, icon: Icon, value, onChange, nam
 };
 
 const SocialButton = ({ label, bg }: { label: string; bg: string }) => (
-  <button className="w-full flex items-center justify-center space-x-2 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-slate-600 font-medium text-sm">
-    <div className={`w-5 h-5 rounded-full ${bg}`}></div>
+  <button className="w-full flex items-center justify-center space-x-2 py-3 border border-gray-200 rounded-xl bg-white text-slate-600 font-medium text-sm hover:bg-violet-50 hover:border-violet-200 transition">
+    <div className={`w-4 h-4 rounded-full ${bg}`}></div>
     <span>{label}</span>
   </button>
 );
 
 const AuthPage = () => {
   const [searchParams] = useSearchParams();
-  const modeParam = searchParams.get('mode');
-  const [isLogin, setIsLogin] = useState(modeParam === 'register' ? false : true);
+  const modeParam = searchParams.get("mode");
+  const [isLogin, setIsLogin] = useState(modeParam === "register" ? false : true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
+    username: "",
+    email: "",
+    password: "",
   });
-  
+
   const navigate = useNavigate();
   const { login, register } = useAuth();
-  const testAccounts = {
-    admin: { username: 'admin', password: 'admin123' },
-    student: { username: 'student', password: 'student123' },
-  };
 
   // Update form mode when URL parameter changes
   useEffect(() => {
-    if (modeParam === 'register') {
+    if (modeParam === "register") {
       setIsLogin(false);
     } else {
       setIsLogin(true);
@@ -129,13 +137,13 @@ const AuthPage = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    
+
     try {
       if (isLogin) {
         // Validate username/email and password
         const loginIdentifier = formData.username || formData.email;
         if (!loginIdentifier || !formData.password) {
-          setError('Please enter both username/email and password');
+          setError("Please enter both username/email and password");
           setLoading(false);
           return;
         }
@@ -144,18 +152,22 @@ const AuthPage = () => {
       } else {
         // Register - validate all fields
         if (!formData.username || !formData.email || !formData.password) {
-          setError('Please fill in all fields');
+          setError("Please fill in all fields");
           setLoading(false);
           return;
         }
-        
-        const result = await register(formData.username, formData.email, formData.password);
-        
+
+        const result = await register(
+          formData.username,
+          formData.email,
+          formData.password,
+        );
+
         // Redirect to email verification page
         if (result) {
-          navigate('/verify-email', { state: { email: formData.email } });
+          navigate("/verify-email", { state: { email: formData.email } });
         } else {
-          setError('Registration failed. Please try again.');
+          setError("Registration failed. Please try again.");
         }
       }
     } catch (err: any) {
@@ -167,228 +179,181 @@ const AuthPage = () => {
 
   const runLogin = async (loginIdentifier: string, password: string) => {
     const response = await login(loginIdentifier, password);
-    const userRole = response.user?.role || 'student';
+    const userRole = response.user?.role || "student";
 
-    if (userRole === 'admin') {
-      navigate('/admin');
+    if (userRole === "admin") {
+      navigate("/admin");
     } else {
-      navigate('/user-portal');
-    }
-  };
-
-  const handleQuickLogin = async (accountKey: 'admin' | 'student') => {
-    const account = testAccounts[accountKey];
-    setFormData({ username: account.username, email: '', password: account.password });
-    setLoading(true);
-    setError(null);
-
-    try {
-      await runLogin(account.username, account.password);
-    } catch (err: any) {
-      setError(extractAuthErrorMessage(err));
-    } finally {
-      setLoading(false);
+      navigate("/user-portal");
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-white font-sans overflow-hidden">
-      {/* Left Panel - Visuals (Themed) */}
-      <div className="hidden lg:flex w-1/2 bg-[#1e1b4b] relative items-center justify-center p-12 overflow-hidden">
-        {/* Background Elements */}
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-[#1e1b4b] via-[#2e1065] to-[#db2777] opacity-80 z-0"></div>
-        <div className="absolute top-10 left-10 opacity-20">
-          <div className="grid grid-cols-6 gap-2">
-            {[...Array(36)].map((_, i) => (
-              <div key={i} className="w-1 h-1 bg-white rounded-full"></div>
-            ))}
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[linear-gradient(135deg,#2b0a6f,#5a1db5,#c72c6c)]">
+      {/* Left Panel */}
+      <div className="relative w-full lg:w-1/2 min-h-[34vh] lg:min-h-screen flex items-center p-8 lg:p-14 overflow-hidden">
+        <div className="relative z-10 max-w-xl text-white">
+          <div className="inline-block px-3 py-1 rounded-full text-[11px] font-semibold tracking-[0.18em] uppercase border border-white/30 bg-white/10 mb-5">
+            Webinar Management Platform
           </div>
+
+          <h1 className="text-4xl lg:text-6xl font-extrabold leading-tight mb-4">
+            {isLogin ? "Welcome Back, Presenter" : "Start Your Webinar Journey"}
+          </h1>
+
+          {isLogin ? (
+            <p className="text-violet-100 text-base lg:text-lg leading-relaxed max-w-lg">
+              Host powerful webinars, manage speakers, and organize events from one
+              simple dashboard.
+            </p>
+          ) : (
+            <>
+              <p className="text-violet-100 text-base lg:text-lg leading-relaxed max-w-lg mb-3">
+                Create your account and begin hosting powerful webinars with confidence.
+              </p>
+              <p className="text-violet-100/80 text-sm lg:text-base leading-relaxed max-w-lg">
+                Manage speakers, schedule events, and connect with your audience through one powerful platform.
+              </p>
+            </>
+          )}
         </div>
 
-        {/* Pink shape */}
-        <div className="absolute -bottom-20 -right-20 w-[600px] h-[600px] bg-gradient-to-t from-pink-600 to-purple-600 rounded-full blur-3xl opacity-20"></div>
-
-        <div className="relative z-10 max-w-lg text-white">
-          <div className="mb-8 inline-block px-4 py-1 rounded-full bg-pink-500/20 border border-pink-500/50 text-pink-300 text-xs font-bold tracking-widest uppercase">
-            Webinar Management
+        {/* Subtle brand watermark */}
+        <div
+          aria-hidden="true"
+          className="hidden lg:block absolute bottom-[40px] right-[60px] z-0 pointer-events-none select-none"
+        >
+          <div className="absolute -inset-16 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.15)_0%,rgba(255,255,255,0)_70%)]"></div>
+          <div className="relative text-[13px] font-semibold tracking-[0.3em] uppercase text-white/40 ml-2 mb-1">
+            ALTRIX
           </div>
-          <h1 className="text-5xl font-extrabold leading-tight mb-6">
-            {isLogin
-              ? "Welcome Back To The Stage."
-              : "Join The World's Biggest Webinar."}
-          </h1>
-          <p className="text-gray-300 text-lg leading-relaxed mb-8">
-            Connect with industry leaders, attend exclusive sessions, and manage
-            your event schedule all in one place.
-          </p>
-
-          {/* Testimonial Mini Card */}
-          <div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10 mt-12 transform hover:scale-105 transition duration-500">
-            <div className="flex items-center space-x-4 mb-4">
-              <div className="w-12 h-12 rounded-full border-2 border-pink-500 p-0.5">
-                <img
-                  src="https://i.pravatar.cc/150?img=32"
-                  alt="User"
-                  className="w-full h-full rounded-full object-cover"
-                />
-              </div>
-              <div>
-                <h4 className="font-bold">Sarah Jenkins</h4>
-                <div className="text-pink-400 text-xs">Event Organizer</div>
-              </div>
-            </div>
-            <p className="text-sm text-gray-200 italic">
-              "The best platform to manage high-scale events smoothly.
-              Registration is a breeze!"
-            </p>
-          </div>
+          <div className="relative text-[200px] leading-none font-black text-white/12">06</div>
         </div>
       </div>
 
-      {/* Right Panel - Form */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8 lg:p-24 relative">
+      {/* Right Panel */}
+      <div className="w-full lg:w-1/2 bg-violet-50 flex items-center justify-center px-5 py-10 lg:p-12">
         <div className="w-full max-w-md">
-          <div className="mb-10">
-            <h2 className="text-3xl font-bold text-slate-900 mb-2">
-              {isLogin ? "Log In" : "Create Account"}
+          <div className="mb-8 text-center lg:text-left">
+            <h2 className="text-3xl lg:text-4xl font-bold text-violet-950 mb-2">
+              {isLogin ? "Sign In" : "Create Account"}
             </h2>
-            <p className="text-slate-500">
+            <p className="text-gray-600">
               {isLogin
-                ? "Enter your details to access your account"
-                : "Get started with your free account today"}
+                ? "Access your dashboard and continue managing webinars."
+                : "Create your account and start hosting with confidence."}
             </p>
-            {isLogin && (
-              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
-                <p className="text-blue-800 font-semibold mb-1">Test Credentials:</p>
-                <p className="text-blue-700">Username: <span className="font-mono font-bold">Admin</span></p>
-                <p className="text-blue-700">Password: <span className="font-mono font-bold">admin123</span></p>
-              </div>
-            )}
-            {isLogin && (
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('admin')}
-                  disabled={loading}
-                  className="w-full rounded-lg border border-pink-200 bg-pink-50 text-pink-700 font-semibold py-2.5 hover:bg-pink-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Test Admin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('student')}
-                  disabled={loading}
-                  className="w-full rounded-lg border border-blue-200 bg-blue-50 text-blue-700 font-semibold py-2.5 hover:bg-blue-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Test Student
-                </button>
-              </div>
-            )}
           </div>
 
-          <form onSubmit={handleSubmit}>
-            {error && (
-              <div className={`mb-5 p-4 rounded-xl ${error.includes('successful') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-                {error}
-              </div>
-            )}
-            
-            {!isLogin && (
+          <div className="bg-white rounded-2xl p-8 shadow-xl border border-gray-100">
+            <form onSubmit={handleSubmit}>
+              {error && (
+                <div
+                  className={`mb-5 p-4 rounded-xl border text-sm ${
+                    error.includes("successful")
+                      ? "bg-green-50 text-green-700 border-green-200"
+                      : "bg-red-50 text-red-700 border-red-200"
+                  }`}
+                >
+                  {error}
+                </div>
+              )}
+
+              {!isLogin && (
+                <InputField
+                  label="Username"
+                  type="text"
+                  placeholder="johndoe"
+                  icon={User}
+                  name="username"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                />
+              )}
+
               <InputField
-                label="Username"
-                type="text"
-                placeholder="johndoe"
-                icon={User}
-                name="username"
-                value={formData.username}
+                label={isLogin ? "Username or Email" : "Email Address"}
+                type={isLogin ? "text" : "email"}
+                placeholder={isLogin ? "username or email" : "name@company.com"}
+                icon={Mail}
+                name={isLogin ? "username" : "email"}
+                value={isLogin ? formData.username : formData.email}
                 onChange={handleInputChange}
               />
-            )}
 
-            <InputField
-              label={isLogin ? "Username or Email" : "Email Address"}
-              type={isLogin ? "text" : "email"}
-              placeholder={isLogin ? "username or email" : "name@company.com"}
-              icon={Mail}
-              name={isLogin ? "username" : "email"}
-              value={isLogin ? formData.username : formData.email}
-              onChange={handleInputChange}
-            />
+              <InputField
+                label="Password"
+                type="password"
+                placeholder="Enter your password"
+                icon={Lock}
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+              />
 
-            <InputField
-              label="Password"
-              type="password"
-              placeholder="••••••••"
-              icon={Lock}
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-            />
-
-            {isLogin && (
-              <div className="flex justify-end mb-6">
-                <a
-                  href="#"
-                  className="text-sm font-semibold text-pink-600 hover:text-pink-700"
-                >
-                  Forgot Password?
-                </a>
-              </div>
-            )}
-
-            {!isLogin && (
-              <div className="flex items-start mb-6">
-                <div className="flex items-center h-5">
-                  <input
-                    id="terms"
-                    type="checkbox"
-                    className="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-pink-300"
-                  />
-                </div>
-                <label
-                  htmlFor="terms"
-                  className="ml-2 text-sm font-medium text-gray-500"
-                >
-                  I agree to the{" "}
-                  <a href="#" className="text-pink-600 hover:underline">
-                    Terms and Conditions
+              {isLogin && (
+                <div className="flex justify-end mb-6">
+                  <a
+                    href="#"
+                    className="text-sm font-semibold text-pink-600 hover:text-pink-700"
+                  >
+                    Forgot Password?
                   </a>
-                </label>
+                </div>
+              )}
+
+              {!isLogin && (
+                <div className="flex items-start mb-6">
+                  <div className="flex items-center h-5">
+                    <input
+                      id="terms"
+                      type="checkbox"
+                      className="w-4 h-4 border border-gray-300 rounded bg-white focus:ring-2 focus:ring-violet-300 cursor-pointer accent-violet-600"
+                    />
+                  </div>
+                  <label htmlFor="terms" className="ml-3 text-sm text-gray-700">
+                    I agree to the{" "}
+                    <a
+                      href="#"
+                      className="font-semibold text-pink-600 hover:text-pink-700"
+                    >
+                      Terms and Conditions
+                    </a>
+                  </label>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-violet-700 to-pink-600 hover:from-violet-800 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3.5 rounded-xl transition flex items-center justify-center"
+              >
+                <span>{loading ? "Processing..." : isLogin ? "Sign In" : "Create Account"}</span>
+                {!loading && <ArrowRight className="ml-2 w-5 h-5" />}
+              </button>
+            </form>
+
+            <div className="relative my-7">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200"></div>
               </div>
-            )}
-
-            <button 
-              type="submit"
-              disabled={loading}
-              className="w-full bg-pink-500 hover:bg-pink-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl shadow-lg shadow-pink-500/30 transition-all flex items-center justify-center group"
-            >
-              <span>{loading ? 'Processing...' : (isLogin ? "Sign In" : "Create Account")}</span>
-              {!loading && <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />}
-            </button>
-          </form>
-
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200"></div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-3 bg-white text-gray-500">Or continue with</span>
+              </div>
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">
-                Or continue with
-              </span>
+
+            <div className="grid grid-cols-2 gap-3">
+              <SocialButton label="Google" bg="bg-red-500" />
+              <SocialButton label="Twitter" bg="bg-blue-400" />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <SocialButton label="Google" bg="bg-red-500" />
-            <SocialButton label="Twitter" bg="bg-blue-400" />
-          </div>
-
-          <div className="mt-10 text-center">
-            <p className="text-slate-600">
+          <div className="mt-7 text-center">
+            <p className="text-gray-600">
               {isLogin ? "Don't have an account?" : "Already have an account?"}
               <button
                 onClick={() => setIsLogin(!isLogin)}
-                className="ml-2 font-bold text-pink-600 hover:text-pink-700 transition-colors"
+                className="ml-2 font-semibold text-pink-600 hover:text-pink-700"
               >
                 {isLogin ? "Sign up" : "Log in"}
               </button>

@@ -68,32 +68,52 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                     },
                     status=status.HTTP_403_FORBIDDEN
                 )
-            
-            # CHECK 2: User email must be verified
-            try:
-                profile = user.profile
+
+            is_admin_account = user.is_superuser or user.is_staff
+
+            # Admin accounts should be able to authenticate in frontend dashboard
+            # even when created via CLI without email verification workflow.
+            if is_admin_account:
+                profile, _ = UserProfile.objects.get_or_create(user=user)
+                profile_updated = False
+                if profile.role != 'admin':
+                    profile.role = 'admin'
+                    profile_updated = True
                 if not profile.is_email_verified:
-                    logger.warning(
-                        f"Login attempt for unverified email",
-                        extra={'email': user.email, 'user_id': user.id}
+                    profile.is_email_verified = True
+                    profile_updated = True
+                if profile_updated:
+                    profile.save(update_fields=['role', 'is_email_verified', 'updated_at'])
+                    logger.info(
+                        "Synced admin profile during login",
+                        extra={'user_id': user.id, 'username': user.username}
+                    )
+            else:
+                # CHECK 2: Non-admin user email must be verified
+                try:
+                    profile = user.profile
+                    if not profile.is_email_verified:
+                        logger.warning(
+                            f"Login attempt for unverified email",
+                            extra={'email': user.email, 'user_id': user.id}
+                        )
+                        return Response(
+                            {
+                                'detail': 'Please verify your email first.',
+                                'email': user.email,
+                                'error_code': 'email_not_verified'
+                            },
+                            status=status.HTTP_403_FORBIDDEN
+                        )
+                except UserProfile.DoesNotExist:
+                    logger.error(
+                        f"UserProfile not found for user",
+                        extra={'user_id': user.id, 'email': user.email}
                     )
                     return Response(
-                        {
-                            'detail': 'Please verify your email first.',
-                            'email': user.email,
-                            'error_code': 'email_not_verified'
-                        },
-                        status=status.HTTP_403_FORBIDDEN
+                        {'detail': 'User profile not found. Please contact support.'},
+                        status=status.HTTP_404_NOT_FOUND
                     )
-            except UserProfile.DoesNotExist:
-                logger.error(
-                    f"UserProfile not found for user",
-                    extra={'user_id': user.id, 'email': user.email}
-                )
-                return Response(
-                    {'detail': 'User profile not found. Please contact support.'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
         
         # All checks passed - proceed with normal token flow
         response = super().post(request, *args, **kwargs)
@@ -104,12 +124,18 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                 extra={'user_id': user.id, 'email': user.email}
             )
             
-            # Ensure UserProfile exists and update role for superusers
+            # Ensure UserProfile exists and update role for admin/staff accounts
             profile, created = UserProfile.objects.get_or_create(user=user)
             if user.is_superuser or user.is_staff:
+                profile_changed = False
                 if profile.role != 'admin':
                     profile.role = 'admin'
-                    profile.save()
+                    profile_changed = True
+                if not profile.is_email_verified:
+                    profile.is_email_verified = True
+                    profile_changed = True
+                if profile_changed:
+                    profile.save(update_fields=['role', 'is_email_verified', 'updated_at'])
                     logger.info(f"Auto-promoted superuser to admin role", extra={'user_id': user.id})
             
             response.data['user'] = UserSerializer(user, context={'request': request}).data
