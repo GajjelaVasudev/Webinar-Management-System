@@ -28,17 +28,14 @@ echo "📁 Collecting static files..."
 python manage.py collectstatic --noinput --clear
 
 # ============================================================
-# Step 4: (Optional) Create Superuser
+# Step 4: (Optional) Ensure Superuser
 # ============================================================
-# Uncomment if you want to auto-create a superuser
-# python manage.py shell << END
-# from django.contrib.auth.models import User
-# if not User.objects.filter(username='admin').exists():
-#     User.objects.create_superuser('admin', 'admin@example.com', 'admin123')
-#     print("✅ Superuser created!")
-# else:
-#     print("⏭️  Superuser already exists")
-# END
+if [ -n "$DJANGO_SUPERUSER_USERNAME" ]; then
+	echo "👤 Ensuring superuser exists..."
+	python manage.py ensure_superuser
+else
+	echo "⏭️  Skipping superuser bootstrap (DJANGO_SUPERUSER_USERNAME not set)"
+fi
 
 echo "✅ Deployment preparation complete!"
 echo "🎉 Your Django app is ready on Render"
