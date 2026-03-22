@@ -1,6 +1,7 @@
 import os
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import check_password
 from django.core.management.base import BaseCommand, CommandError
 from decouple import config
 
@@ -83,7 +84,8 @@ class Command(BaseCommand):
             user.is_superuser = True
             changed_fields.append("is_superuser")
 
-        if update_password:
+        should_sync_password = update_password or (not check_password(password, user.password))
+        if should_sync_password:
             user.set_password(password)
             changed_fields.append("password")
 

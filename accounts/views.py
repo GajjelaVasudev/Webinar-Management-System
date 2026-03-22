@@ -55,21 +55,35 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         
         # GATING LOGIC: Apply checks in order
         if user:
-            # CHECK 1: User account must be active
-            if not user.is_active:
-                logger.warning(
-                    f"Login attempt for deactivated account",
-                    extra={'username': login_identifier, 'user_id': user.id}
-                )
-                return Response(
-                    {
-                        'detail': 'Your account has been deactivated. Please contact support.',
-                        'error_code': 'account_inactive'
-                    },
-                    status=status.HTTP_403_FORBIDDEN
-                )
+            profile = UserProfile.objects.filter(user=user).first()
+            is_admin_account = (
+                user.is_superuser
+                or user.is_staff
+                or (profile is not None and profile.role == 'admin')
+            )
 
-            is_admin_account = user.is_superuser or user.is_staff
+            # CHECK 1: Account active gate
+            # Admin accounts are auto-reactivated to avoid lockouts across envs.
+            if not user.is_active:
+                if is_admin_account:
+                    user.is_active = True
+                    user.save(update_fields=['is_active'])
+                    logger.warning(
+                        "Auto-reactivated admin account during login",
+                        extra={'username': login_identifier, 'user_id': user.id}
+                    )
+                else:
+                    logger.warning(
+                        f"Login attempt for deactivated account",
+                        extra={'username': login_identifier, 'user_id': user.id}
+                    )
+                    return Response(
+                        {
+                            'detail': 'Your account has been deactivated. Please contact support.',
+                            'error_code': 'account_inactive'
+                        },
+                        status=status.HTTP_403_FORBIDDEN
+                    )
 
             # Admin accounts should be able to authenticate in frontend dashboard
             # even when created via CLI without email verification workflow.

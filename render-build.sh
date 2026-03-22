@@ -32,7 +32,7 @@ python manage.py collectstatic --noinput --clear
 # ============================================================
 if [ -n "$DJANGO_SUPERUSER_USERNAME" ]; then
 	echo "👤 Ensuring superuser exists..."
-	python manage.py ensure_superuser
+	python manage.py ensure_superuser --update-password
 else
 	echo "⏭️  Skipping superuser bootstrap (DJANGO_SUPERUSER_USERNAME not set)"
 fi
